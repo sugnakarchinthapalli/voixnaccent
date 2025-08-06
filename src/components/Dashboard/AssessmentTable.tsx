@@ -86,13 +86,16 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
 
     setDeletingId(assessmentId);
     try {
+      console.log('Starting deletion process for assessment:', assessmentId);
       await assessmentService.deleteAssessment(assessmentId);
+      console.log('Assessment deleted successfully, refreshing table...');
       if (onAssessmentDeleted) {
         await onAssessmentDeleted();
       }
+      console.log('Table refresh completed');
     } catch (error) {
       console.error('Error deleting assessment:', error);
-      alert('Failed to delete assessment. Please try again.');
+      alert(`Failed to delete assessment: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
     } finally {
       setDeletingId(null);
     }

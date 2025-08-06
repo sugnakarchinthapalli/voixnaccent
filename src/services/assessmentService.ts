@@ -307,37 +307,74 @@ export class AssessmentService {
   }
 
   async deleteAssessment(assessmentId: string): Promise<void> {
-    // Get assessment with candidate data to access audio source
-    const { data: assessment, error: fetchError } = await supabase
-      .from('assessments')
-      .select(`
-        *,
-        candidate:candidates(*)
-      `)
-      .eq('id', assessmentId)
-      .single();
+    try {
+      // Get assessment with candidate data to access audio source
+      const { data: assessment, error: fetchError } = await supabase
+        .from('assessments')
+        .select(`
+          *,
+          candidate:candidates(*)
+        `)
+        .eq('id', assessmentId)
+        .single();
 
-    if (fetchError) throw fetchError;
-
-    // Delete the assessment (this will cascade delete queue items due to foreign key)
-    const { error: deleteError } = await supabase
-      .from('assessments')
-      .delete()
-      .eq('id', assessmentId);
-
-    if (deleteError) throw deleteError;
-
-    // If the audio source is a file upload (not Vocaroo), try to delete it from storage
-    if (assessment.candidate?.audio_source && 
-        !assessment.candidate.audio_source.includes('vocaroo') && 
-        !assessment.candidate.audio_source.includes('voca.ro') &&
-        assessment.candidate.audio_source.includes('supabase')) {
-      try {
-        await storageService.deleteAudioFile(assessment.candidate.audio_source);
-      } catch (error) {
-        console.warn('Could not delete audio file from storage:', error);
-        // Don't throw error for storage cleanup failures
+      if (fetchError) {
+        console.error('Error fetching assessment for deletion:', fetchError);
+        throw new Error(`Failed to fetch assessment: ${fetchError.message}`);
       }
+
+      console.log('Deleting assessment:', assessmentId, 'for candidate:', assessment.candidate?.name);
+
+      // Delete from assessment_queue first (if exists)
+      const { error: queueDeleteError } = await supabase
+        .from('assessment_queue')
+        .delete()
+        .eq('candidate_id', assessment.candidate_id);
+
+      if (queueDeleteError) {
+        console.warn('Error deleting from queue (may not exist):', queueDeleteError);
+      }
+
+      // Delete the assessment
+      const { error: assessmentDeleteError } = await supabase
+        .from('assessments')
+        .delete()
+        .eq('id', assessmentId);
+
+      if (assessmentDeleteError) {
+        console.error('Error deleting assessment:', assessmentDeleteError);
+        throw new Error(`Failed to delete assessment: ${assessmentDeleteError.message}`);
+      }
+
+      // Delete the candidate
+      const { error: candidateDeleteError } = await supabase
+        .from('candidates')
+        .delete()
+        .eq('id', assessment.candidate_id);
+
+      if (candidateDeleteError) {
+        console.error('Error deleting candidate:', candidateDeleteError);
+        throw new Error(`Failed to delete candidate: ${candidateDeleteError.message}`);
+      }
+
+      console.log('Successfully deleted assessment and candidate');
+
+      // If the audio source is a file upload (not Vocaroo), try to delete it from storage
+      if (assessment.candidate?.audio_source && 
+          !assessment.candidate.audio_source.includes('vocaroo') && 
+          !assessment.candidate.audio_source.includes('voca.ro') &&
+          assessment.candidate.audio_source.includes('supabase')) {
+        try {
+          console.log('Deleting audio file from storage:', assessment.candidate.audio_source);
+          await storageService.deleteAudioFile(assessment.candidate.audio_source);
+        } catch (error) {
+          console.warn('Could not delete audio file from storage:', error);
+          // Don't throw error for storage cleanup failures
+        }
+      }
+    } catch (error) {
+      console.error('Error in deleteAssessment:', error);
+      throw error;
     }
   }
 

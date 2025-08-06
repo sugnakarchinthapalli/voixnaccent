@@ -111,13 +111,13 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
         setUploadProgress(75);
         
         console.log('File uploaded successfully:', audioSource);
-      }
-        console.error('Storage error:', storageError);
-        if (storageError instanceof Error && storageError.message.includes('RLS policies not configured')) {
+      if (uploadMethod === 'file' && uploadedFile) {
+        console.error('Storage error:', err);
+        if (err instanceof Error && err.message.includes('RLS policies not configured')) {
           setError('Storage not properly configured. Please contact your administrator to set up file upload permissions.');
           return;
         }
-
+      }
       setUploadProgress(90);
 
       // Create candidate and add to assessment queue
