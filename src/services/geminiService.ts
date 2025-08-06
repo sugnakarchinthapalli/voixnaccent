@@ -16,6 +16,7 @@ interface GeminiAssessmentResult {
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const ASSESSMENT_PROMPT = `
 You are an expert voice assessment AI. Analyze the provided audio and score it based on these 6 competencies using a 1-5 scale:
@@ -85,7 +86,7 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
   try {
     console.log(`Starting assessment for audio URL: ${audioUrl}`);
 
-    // Get audio data (either from Vocaroo proxy or direct fetch)
+    // Get audio data
     const { audioBase64, mimeType } = await getAudioData(audioUrl);
     
     console.log(`Audio data obtained, mime type: ${mimeType}, base64 length: ${audioBase64.length}`);
@@ -170,16 +171,18 @@ async function getAudioData(audioUrl: string): Promise<{ audioBase64: string; mi
   
   // Check if it's a Vocaroo link that needs proxy processing
   if (audioUrl.includes('voca.ro/') || audioUrl.includes('vocaroo.com/')) {
+    console.log('Detected Vocaroo URL, using proxy...');
     return await getVocarooAudioViaProxy(audioUrl);
   }
   
   // For other URLs (like Google Drive), fetch directly
+  console.log('Non-Vocaroo URL, fetching directly...');
   return await fetchAudioDirectly(audioUrl);
 }
 
 async function getVocarooAudioViaProxy(vocarooUrl: string): Promise<{ audioBase64: string; mimeType: string }> {
-  if (!SUPABASE_URL) {
-    throw new Error('Supabase URL not configured');
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error('Supabase configuration not found');
   }
 
   try {
@@ -191,7 +194,7 @@ async function getVocarooAudioViaProxy(vocarooUrl: string): Promise<{ audioBase6
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
       },
       body: JSON.stringify({ vocarooUrl })
     });
