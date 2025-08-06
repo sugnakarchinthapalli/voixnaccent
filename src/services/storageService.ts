@@ -74,16 +74,19 @@ export class StorageService {
 
   async ensureBucketExists(): Promise<void> {
     try {
-      // Just check if we can access the bucket - don't try to create it
+      // Check if we can access the bucket
       const { data, error } = await supabase.storage
         .from(this.bucketName)
         .list('', { limit: 1 });
 
       if (error && error.message.includes('Bucket not found')) {
-        throw new Error(`Storage bucket '${this.bucketName}' not found. Please create it manually in Supabase Dashboard with public access enabled.`);
+        throw new Error(`Storage bucket '${this.bucketName}' not found. Please follow the setup instructions in the console.`);
       }
 
       if (error && !error.message.includes('Bucket not found')) {
+        if (error.message.includes('row-level security')) {
+          throw new Error('Storage RLS policies not configured. Please follow the setup instructions in the console.');
+        }
         console.warn('Storage access check warning:', error);
       }
 

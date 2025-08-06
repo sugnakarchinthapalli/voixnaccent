@@ -112,6 +112,11 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
         
         console.log('File uploaded successfully:', audioSource);
       }
+        console.error('Storage error:', storageError);
+        if (storageError instanceof Error && storageError.message.includes('RLS policies not configured')) {
+          setError('Storage not properly configured. Please contact your administrator to set up file upload permissions.');
+          return;
+        }
 
       setUploadProgress(90);
 
