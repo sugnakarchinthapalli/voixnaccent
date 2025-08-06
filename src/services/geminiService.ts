@@ -16,7 +16,6 @@ interface GeminiAssessmentResult {
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const ASSESSMENT_PROMPT = `
 You are an expert voice assessment AI. Analyze the provided audio and score it based on these 6 competencies using a 1-5 scale:

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Download, RefreshCw, Search, Filter } from 'lucide-react';
+import { Plus, Download, Search, Filter } from 'lucide-react';
 import { AssessmentTable } from './AssessmentTable';
 import { ManualUpload } from './ManualUpload';
 import { QueueStatus } from './QueueStatus';
 import { Button } from '../UI/Button';
 import { assessmentService } from '../../services/assessmentService';
-import { sheetsMonitorService } from '../../services/sheetsMonitorService';
 import { Assessment } from '../../types';
 import { exportToCSV } from '../../utils/csvExport';
 
@@ -21,20 +20,15 @@ export function Dashboard() {
     dateFrom: '',
     dateTo: ''
   });
-  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadAssessments();
-    
-    // Start monitoring Google Sheets
-    sheetsMonitorService.startMonitoring();
-    
+
     // Set up periodic refresh
     const interval = setInterval(loadAssessments, 15000); // Refresh every 15 seconds
     
     return () => {
       clearInterval(interval);
-      sheetsMonitorService.stopMonitoring();
     };
   }, []);
 
@@ -93,18 +87,6 @@ export function Dashboard() {
     setFilteredAssessments(filtered);
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      console.log('Manual sync triggered...');
-      await sheetsMonitorService.manualSync();
-      console.log('Manual sync completed, reloading assessments...');
-      await loadAssessments();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   const handleExportCSV = () => {
     exportToCSV(filteredAssessments, 'voice_assessments');
   };
@@ -144,19 +126,10 @@ export function Dashboard() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Voice Assessments</h1>
               <p className="text-gray-600 mt-1">
-                AI-powered voice evaluation dashboard
+                AI-powered voice evaluation dashboard - Manual Processing Only
               </p>
             </div>
             <div className="flex items-center space-x-3">
-              <Button
-                onClick={handleRefresh}
-                variant="outline"
-                disabled={refreshing}
-                className="flex items-center space-x-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                <span>Sync</span>
-              </Button>
               <Button
                 onClick={() => setShowUpload(true)}
                 className="flex items-center space-x-2"

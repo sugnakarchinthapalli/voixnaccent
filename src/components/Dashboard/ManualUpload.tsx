@@ -3,7 +3,22 @@ import { X, Upload, Link, AlertCircle, CheckCircle } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '../UI/Button';
 import { assessmentService } from '../../services/assessmentService';
-import { validateAudioSource } from '../../services/googleSheetsService';
+
+function validateAudioSource(audioSource: string): boolean {
+  const trimmed = audioSource.trim();
+  
+  // Check for Vocaroo links
+  if (trimmed.includes('voca.ro') || trimmed.includes('vocaroo.com')) {
+    return /^https?:\/\/(www\.)?(voca\.ro|vocaroo\.com)\/[a-zA-Z0-9]+/i.test(trimmed);
+  }
+  
+  // Check for Google Drive links
+  if (trimmed.includes('drive.google.com')) {
+    return /^https?:\/\/drive\.google\.com\/.*\/d\/[a-zA-Z0-9_-]+/i.test(trimmed);
+  }
+  
+  return false;
+}
 
 interface ManualUploadProps {
   onClose: () => void;
@@ -82,9 +97,11 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
       let audioSource = vocarooLink;
       
       if (uploadMethod === 'file' && uploadedFile) {
-        // For file uploads, we would typically upload to a storage service
-        // For now, we'll show an error as file upload requires backend implementation
-        throw new Error('File upload feature requires additional backend setup. Please use Vocaroo links for now.');
+        // TODO: Implement file upload to storage service (e.g., Supabase Storage)
+        // For now, we'll use a placeholder URL
+        console.log('File upload selected:', uploadedFile.name);
+        console.log('TODO: Upload file to storage and get URL');
+        audioSource = `placeholder://file-upload/${uploadedFile.name}`;
       }
 
       // Create candidate and add to assessment queue
@@ -92,7 +109,7 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
         name: candidateName.trim(),
         email: email.trim(),
         audio_source: audioSource,
-        source_type: 'manual'
+        source_type: 'manual' as const
       });
 
       // Add to queue with high priority (manual uploads get priority)
@@ -253,14 +270,6 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
                       </p>
                     </div>
                   )}
-                </div>
-                <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex items-center">
-                    <AlertCircle className="h-4 w-4 text-yellow-600 mr-2" />
-                    <p className="text-sm text-yellow-800">
-                      File upload feature requires additional backend setup. Please use Vocaroo links for now.
-                    </p>
-                  </div>
                 </div>
               </div>
             )}

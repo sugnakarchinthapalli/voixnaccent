@@ -61,11 +61,3 @@ export interface BatchProcessingStats {
   completed: number;
   failed: number;
 }
-
-export interface GoogleSheetsEntry {
-  rowId: string;
-  candidateName: string;
-  email: string;
-  audioSource: string;
-  timestamp: string;
-}

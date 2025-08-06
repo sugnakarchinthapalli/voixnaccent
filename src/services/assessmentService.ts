@@ -1,7 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { Candidate, Assessment, QueueItem, CompetencyScores } from '../types';
 import { assessAudioWithGemini, calculateOverallGrade } from './geminiService';
-import { convertGoogleDriveToDirectLink } from './googleSheetsService';
 
 const MAX_CONCURRENT_ASSESSMENTS = 2;
 const PROCESSING_DELAY = 3000; // 3 seconds between API calls
@@ -143,10 +142,7 @@ export class AssessmentService {
       }
 
       // Process audio URL
-      let audioUrl = candidate.audio_source;
-      if (audioUrl.includes('drive.google.com')) {
-        audioUrl = convertGoogleDriveToDirectLink(audioUrl);
-      }
+      const audioUrl = candidate.audio_source;
 
       // Assess with Gemini
       const assessmentResult = await assessAudioWithGemini(audioUrl);
@@ -173,8 +169,8 @@ export class AssessmentService {
         }
       };
 
-      // Determine assessed_by based on source_type
-      const assessedBy = candidate.source_type === 'auto' ? 'Form Response' : await this.getCurrentUserEmail();
+      // All assessments are now manual
+      const assessedBy = await this.getCurrentUserEmail();
 
       // Save assessment
       const { error: assessmentError } = await supabase
