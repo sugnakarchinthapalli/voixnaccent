@@ -15,6 +15,7 @@ interface GeminiAssessmentResult {
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 const ASSESSMENT_PROMPT = `
 You are an expert voice assessment AI. Analyze the provided audio and score it based on these 6 competencies using a 1-5 scale:
@@ -82,26 +83,12 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
   }
 
   try {
-    // Process the audio URL to get the direct link
-    const directAudioUrl = await getDirectAudioUrl(audioUrl);
-    
-    // Fetch the audio file using the direct URL
-    const audioResponse = await fetch(directAudioUrl);
-    if (!audioResponse.ok) {
-      throw new Error(`Failed to fetch audio from ${directAudioUrl}: ${audioResponse.statusText}`);
-    }
+    console.log(`Starting assessment for audio URL: ${audioUrl}`);
 
-    const audioBlob = await audioResponse.blob();
+    // Get audio data (either from Vocaroo proxy or direct fetch)
+    const { audioBase64, mimeType } = await getAudioData(audioUrl);
     
-    // Validate that we got an audio file
-    if (!audioBlob.type.startsWith('audio/')) {
-      throw new Error(`Expected audio file, but got: ${audioBlob.type}`);
-    }
-    
-    const audioBase64 = await blobToBase64(audioBlob);
-    
-    // Remove the data URL prefix if present
-    const base64Data = audioBase64.split(',')[1] || audioBase64;
+    console.log(`Audio data obtained, mime type: ${mimeType}, base64 length: ${audioBase64.length}`);
 
     const requestBody = {
       contents: [
@@ -112,8 +99,8 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
             },
             {
               inline_data: {
-                mime_type: audioBlob.type,
-                data: base64Data
+                mime_type: mimeType,
+                data: audioBase64
               }
             }
           ]
@@ -127,6 +114,7 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
       }
     };
 
+    console.log('Sending request to Gemini API...');
     const response = await fetch(GEMINI_API_URL, {
       method: 'POST',
       headers: {
@@ -137,12 +125,14 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
       throw new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
     
     if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+      console.error('Invalid response structure from Gemini API:', data);
       throw new Error('Invalid response from Gemini API');
     }
 
@@ -151,6 +141,7 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
     // Parse the JSON response
     const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
+      console.error('Could not extract JSON from Gemini response:', generatedText);
       throw new Error('Could not extract JSON from Gemini response');
     }
 
@@ -160,10 +151,12 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
     const requiredFields = ['clarity_articulation', 'pace', 'tone_modulation', 'accent_neutrality', 'confidence_energy', 'grammar_fluency'];
     for (const field of requiredFields) {
       if (!assessmentResult[field] || typeof assessmentResult[field].score !== 'number') {
+        console.error(`Invalid assessment result: missing or invalid ${field}`, assessmentResult);
         throw new Error(`Invalid assessment result: missing or invalid ${field}`);
       }
     }
 
+    console.log('Assessment completed successfully');
     return assessmentResult;
     
   } catch (error) {
@@ -172,111 +165,91 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
   }
 }
 
-async function getDirectAudioUrl(audioUrl: string): Promise<string> {
-  // Check if it's a voca.ro link that needs processing
+async function getAudioData(audioUrl: string): Promise<{ audioBase64: string; mimeType: string }> {
+  console.log(`Getting audio data for URL: ${audioUrl}`);
+  
+  // Check if it's a Vocaroo link that needs proxy processing
   if (audioUrl.includes('voca.ro/') || audioUrl.includes('vocaroo.com/')) {
-    return await extractVocarooDirectLink(audioUrl);
+    return await getVocarooAudioViaProxy(audioUrl);
   }
   
-  // For other URLs (like Google Drive), return as-is or process accordingly
-  return audioUrl;
+  // For other URLs (like Google Drive), fetch directly
+  return await fetchAudioDirectly(audioUrl);
 }
 
-async function extractVocarooDirectLink(vocarooUrl: string): Promise<string> {
+async function getVocarooAudioViaProxy(vocarooUrl: string): Promise<{ audioBase64: string; mimeType: string }> {
+  if (!SUPABASE_URL) {
+    throw new Error('Supabase URL not configured');
+  }
+
   try {
-    console.log(`Extracting direct link from: ${vocarooUrl}`);
+    console.log(`Using Vocaroo proxy for URL: ${vocarooUrl}`);
     
-    // Normalize the URL to ensure it's in the correct format
-    let normalizedUrl = vocarooUrl.trim();
+    const proxyUrl = `${SUPABASE_URL}/functions/v1/vocaroo-proxy`;
     
-    // Convert voca.ro to vocaroo.com format for consistency
-    if (normalizedUrl.includes('voca.ro/')) {
-      const match = normalizedUrl.match(/voca\.ro\/([a-zA-Z0-9]+)/);
-      if (match && match[1]) {
-        normalizedUrl = `https://vocaroo.com/${match[1]}`;
-      }
-    }
-    
-    // Ensure it starts with https://
-    if (!normalizedUrl.startsWith('http')) {
-      normalizedUrl = `https://${normalizedUrl}`;
-    }
-    
-    console.log(`Fetching HTML from: ${normalizedUrl}`);
-    
-    // Fetch the HTML page
-    const response = await fetch(normalizedUrl);
+    const response = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+      },
+      body: JSON.stringify({ vocarooUrl })
+    });
+
     if (!response.ok) {
-      throw new Error(`Failed to fetch Vocaroo page: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`Vocaroo proxy error: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(`Vocaroo proxy error: ${response.status} ${response.statusText}`);
     }
+
+    const result = await response.json();
     
-    const html = await response.text();
-    console.log('HTML fetched successfully, extracting audio URL...');
-    
-    // Try multiple patterns to extract the direct audio URL
-    const patterns = [
-      // Pattern 1: Look for media URLs in script tags
-      /https:\/\/media\d*\.vocaroo\.com\/mp3\/[a-zA-Z0-9]+/g,
-      // Pattern 2: Look for audio src attributes
-      /src=["']([^"']*media\d*\.vocaroo\.com[^"']*\.mp3[^"']*)["']/g,
-      // Pattern 3: Look for playback URLs in JavaScript
-      /playbackUrl["']?\s*:\s*["']([^"']*media\d*\.vocaroo\.com[^"']*\.mp3[^"']*)["']/g,
-      // Pattern 4: Look for any media.vocaroo.com URLs
-      /["']([^"']*media\d*\.vocaroo\.com[^"']*\.mp3[^"']*)["']/g
-    ];
-    
-    for (const pattern of patterns) {
-      const matches = html.match(pattern);
-      if (matches && matches.length > 0) {
-        // Extract the URL from the match
-        let directUrl = matches[0];
-        
-        // Clean up the URL if it has quotes or other characters
-        directUrl = directUrl.replace(/["']/g, '');
-        directUrl = directUrl.replace(/src=/, '');
-        directUrl = directUrl.replace(/playbackUrl\s*:\s*/, '');
-        
-        // Ensure it starts with https://
-        if (!directUrl.startsWith('http')) {
-          directUrl = `https://${directUrl}`;
-        }
-        
-        console.log(`Direct audio URL extracted: ${directUrl}`);
-        return directUrl;
-      }
+    if (!result.success) {
+      console.error('Vocaroo proxy failed:', result.error, result.details);
+      throw new Error(`Vocaroo proxy failed: ${result.error}`);
     }
+
+    console.log(`Vocaroo proxy successful, audio base64 length: ${result.audioBase64.length}`);
     
-    // If no direct URL found, try to construct it from the ID
-    const idMatch = normalizedUrl.match(/vocaroo\.com\/([a-zA-Z0-9]+)/);
-    if (idMatch && idMatch[1]) {
-      const recordingId = idMatch[1];
-      // Try common media server patterns
-      const possibleUrls = [
-        `https://media1.vocaroo.com/mp3/${recordingId}`,
-        `https://media.vocaroo.com/mp3/${recordingId}`,
-        `https://media1.vocaroo.com/mp3/${recordingId}.mp3`,
-        `https://media.vocaroo.com/mp3/${recordingId}.mp3`
-      ];
-      
-      // Test each URL to see which one works
-      for (const testUrl of possibleUrls) {
-        try {
-          const testResponse = await fetch(testUrl, { method: 'HEAD' });
-          if (testResponse.ok && testResponse.headers.get('content-type')?.startsWith('audio/')) {
-            console.log(`Direct audio URL found via testing: ${testUrl}`);
-            return testUrl;
-          }
-        } catch (e) {
-          // Continue to next URL
-        }
-      }
-    }
-    
-    throw new Error('Could not extract direct audio URL from Vocaroo page');
-    
+    return {
+      audioBase64: result.audioBase64,
+      mimeType: result.mimeType || 'audio/mpeg'
+    };
+
   } catch (error) {
-    console.error('Error extracting Vocaroo direct link:', error);
-    throw new Error(`Failed to extract direct audio link from Vocaroo: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('Error using Vocaroo proxy:', error);
+    throw new Error(`Failed to get audio via Vocaroo proxy: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+async function fetchAudioDirectly(audioUrl: string): Promise<{ audioBase64: string; mimeType: string }> {
+  try {
+    console.log(`Fetching audio directly from: ${audioUrl}`);
+    
+    const response = await fetch(audioUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audio: ${response.status} ${response.statusText}`);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.startsWith('audio/')) {
+      throw new Error(`Expected audio file, but got: ${contentType}`);
+    }
+
+    const audioBlob = await response.blob();
+    const audioBase64 = await blobToBase64(audioBlob);
+    
+    // Remove the data URL prefix if present
+    const base64Data = audioBase64.split(',')[1] || audioBase64;
+    
+    return {
+      audioBase64: base64Data,
+      mimeType: contentType
+    };
+
+  } catch (error) {
+    console.error('Error fetching audio directly:', error);
+    throw new Error(`Failed to fetch audio directly: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
