@@ -170,10 +170,13 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
                       {assessment.overall_grade && (
-                        <ScoreBadge 
-                          score={getOverallScore(assessment.assessment_scores)} 
-                          showScore={false} 
-                        />
+                        <div className={`w-3 h-3 rounded-full ${
+                          getOverallScore(assessment.assessment_scores) >= 4 
+                            ? 'bg-green-500' 
+                            : getOverallScore(assessment.assessment_scores) >= 3 
+                            ? 'bg-yellow-500' 
+                            : 'bg-red-500'
+                        }`} title={`Grade: ${assessment.overall_grade}`}></div>
                       )}
                       <span className="text-sm font-medium text-gray-700">
                         {getOverallScore(assessment.assessment_scores)}
@@ -187,26 +190,32 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                           <ScoreBadge 
                             score={assessment.assessment_scores.clarity_articulation || 0}
                             competency="C"
+                            showScore={true}
                           />
                           <ScoreBadge 
                             score={assessment.assessment_scores.pace || 0}
                             competency="P"
+                            showScore={true}
                           />
                           <ScoreBadge 
                             score={assessment.assessment_scores.tone_modulation || 0}
                             competency="T"
+                            showScore={true}
                           />
                           <ScoreBadge 
                             score={assessment.assessment_scores.accent_neutrality || 0}
                             competency="A"
+                            showScore={true}
                           />
                           <ScoreBadge 
                             score={assessment.assessment_scores.confidence_energy || 0}
                             competency="E"
+                            showScore={true}
                           />
                           <ScoreBadge 
                             score={assessment.assessment_scores.grammar_fluency || 0}
                             competency="G"
+                            showScore={true}
                           />
                         </>
                       )}

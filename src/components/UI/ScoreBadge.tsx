@@ -5,9 +5,10 @@ interface ScoreBadgeProps {
   score: number;
   competency?: string;
   showScore?: boolean;
+  showGradeText?: boolean;
 }
 
-export function ScoreBadge({ score, competency, showScore = true }: ScoreBadgeProps) {
+export function ScoreBadge({ score, competency, showScore = true, showGradeText = false }: ScoreBadgeProps) {
   const getGradeColor = (score: number) => {
     if (score >= 4) return 'bg-green-100 text-green-800 border-green-200';
     if (score >= 3) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -27,9 +28,11 @@ export function ScoreBadge({ score, competency, showScore = true }: ScoreBadgePr
     )}>
       {competency && <span className="mr-1">{competency}:</span>}
       {showScore && <span className="font-bold">{score}</span>}
-      <span className={clsx('ml-1', showScore ? '' : 'font-bold')}>
-        {getGradeLabel(score)}
-      </span>
+      {showGradeText && (
+        <span className={clsx('ml-1', showScore ? '' : 'font-bold')}>
+          {getGradeLabel(score)}
+        </span>
+      )}
     </div>
   );
 }

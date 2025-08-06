@@ -122,7 +122,13 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
               <div className="text-4xl font-bold text-gray-900">
                 {getOverallScore()}
               </div>
-              <ScoreBadge score={getOverallScore()} showScore={false} />
+              <div className={`w-6 h-6 rounded-full ${
+                getOverallScore() >= 4 
+                  ? 'bg-green-500' 
+                  : getOverallScore() >= 3 
+                  ? 'bg-yellow-500' 
+                  : 'bg-red-500'
+              }`} title={`Overall Grade: ${assessment.overall_grade}`}></div>
             </div>
           </div>
 
@@ -139,7 +145,7 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
                     <div key={key} className="bg-white border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium text-gray-900">{label}</h4>
-                        <ScoreBadge score={score} />
+                        <ScoreBadge score={score} showScore={true} />
                       </div>
                       {feedback && (
                         <p className="text-sm text-gray-600 leading-relaxed">{feedback}</p>
