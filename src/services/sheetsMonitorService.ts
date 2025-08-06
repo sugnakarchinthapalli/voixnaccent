@@ -6,7 +6,7 @@ class SheetsMonitorService {
   private intervalId: NodeJS.Timeout | null = null;
   private isProcessing = false;
 
-  startMonitoring(intervalMs: number = 60000) { // Check every minute
+  startMonitoring(intervalMs: number = 30000) { // Check every 30 seconds
     if (this.intervalId) {
       this.stopMonitoring();
     }
@@ -32,7 +32,9 @@ class SheetsMonitorService {
     this.isProcessing = true;
     
     try {
+      console.log('Checking Google Sheets for new entries...');
       const sheetsEntries = await fetchGoogleSheetsData();
+      console.log(`Found ${sheetsEntries.length} entries in Google Sheets`);
       
       for (const entry of sheetsEntries) {
         await this.processEntry(entry);
@@ -46,6 +48,8 @@ class SheetsMonitorService {
 
   private async processEntry(entry: any) {
     try {
+      console.log(`Processing entry: ${entry.candidateName} (${entry.email})`);
+      
       // Check if already processed
       const { data: existingEntry } = await supabase
         .from('processed_sheets_entries')
@@ -54,6 +58,7 @@ class SheetsMonitorService {
         .single();
 
       if (existingEntry) {
+        console.log(`Entry ${entry.rowId} already processed, skipping`);
         return; // Already processed
       }
 
@@ -63,26 +68,41 @@ class SheetsMonitorService {
         return;
       }
 
-      // Create candidate
-      const candidate = await assessmentService.createCandidate({
-        name: entry.candidateName,
-        email: entry.email,
-        audio_source: entry.audioSource,
-        source_type: 'auto'
-      });
-
-      // Add to assessment queue with normal priority
-      await assessmentService.addToQueue(candidate.id, 0);
-
-      // Mark as processed
-      await supabase
-        .from('processed_sheets_entries')
-        .insert({
-          sheet_row_id: entry.rowId,
-          candidate_id: candidate.id
+      try {
+        // Create candidate
+        const candidate = await assessmentService.createCandidate({
+          name: entry.candidateName,
+          email: entry.email,
+          audio_source: entry.audioSource,
+          source_type: 'auto'
         });
 
-      console.log(`Processed new entry: ${entry.candidateName} (${entry.email})`);
+        // Add to assessment queue with normal priority
+        await assessmentService.addToQueue(candidate.id, 0);
+
+        // Mark as processed
+        await supabase
+          .from('processed_sheets_entries')
+          .insert({
+            sheet_row_id: entry.rowId,
+            candidate_id: candidate.id
+          });
+
+        console.log(`Successfully processed new entry: ${entry.candidateName} (${entry.email})`);
+      } catch (candidateError) {
+        if (candidateError instanceof Error && candidateError.message.includes('already exists')) {
+          console.log(`Candidate ${entry.email} already exists, marking as processed`);
+          // Mark as processed even if candidate exists to avoid reprocessing
+          await supabase
+            .from('processed_sheets_entries')
+            .insert({
+              sheet_row_id: entry.rowId,
+              candidate_id: null
+            });
+        } else {
+          throw candidateError;
+        }
+      }
       
     } catch (error) {
       console.error(`Error processing entry ${entry.rowId}:`, error);

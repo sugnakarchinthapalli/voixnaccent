@@ -62,7 +62,7 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
       }
       
       if (!validateAudioSource(vocarooLink)) {
-        setError('Please enter a valid Vocaroo link (e.g., https://vocaroo.com/abc123)');
+        setError('Please enter a valid Vocaroo link (e.g., https://voca.ro/abc123 or https://vocaroo.com/abc123)');
         return false;
       }
     }
@@ -211,11 +211,11 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
                   type="url"
                   value={vocarooLink}
                   onChange={(e) => setVocarooLink(e.target.value)}
-                  placeholder="https://vocaroo.com/abc123"
+                  placeholder="https://voca.ro/abc123"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <p className="mt-2 text-sm text-gray-500">
-                  Enter a valid Vocaroo recording link
+                  Enter a valid Vocaroo recording link (voca.ro or vocaroo.com)
                 </p>
               </div>
             ) : (

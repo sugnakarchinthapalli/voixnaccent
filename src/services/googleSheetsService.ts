@@ -42,7 +42,7 @@ export async function fetchGoogleSheetsData(): Promise<GoogleSheetsEntry[]> {
             email && 
             email.includes('@') && 
             audioSource && 
-            (audioSource.includes('vocaroo.com') || audioSource.includes('drive.google.com'))) {
+            (audioSource.includes('voca.ro') || audioSource.includes('vocaroo.com') || audioSource.includes('drive.google.com'))) {
           
           entries.push({
             rowId: `row_${i + 1}`,
@@ -67,8 +67,8 @@ export function validateAudioSource(audioSource: string): boolean {
   const trimmed = audioSource.trim();
   
   // Check for Vocaroo links
-  if (trimmed.includes('vocaroo.com')) {
-    return /^https?:\/\/(www\.)?vocaroo\.com\/[a-zA-Z0-9]+/i.test(trimmed);
+  if (trimmed.includes('voca.ro') || trimmed.includes('vocaroo.com')) {
+    return /^https?:\/\/(www\.)?(voca\.ro|vocaroo\.com)\/[a-zA-Z0-9]+/i.test(trimmed);
   }
   
   // Check for Google Drive links

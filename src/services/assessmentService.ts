@@ -16,6 +16,17 @@ export class AssessmentService {
     audio_source: string;
     source_type: 'auto' | 'manual';
   }): Promise<Candidate> {
+    // Check for existing candidate with same email
+    const { data: existingCandidate } = await supabase
+      .from('candidates')
+      .select('id, name, email')
+      .eq('email', candidateData.email.trim())
+      .single();
+
+    if (existingCandidate) {
+      throw new Error(`A candidate with email "${candidateData.email}" already exists: ${existingCandidate.name}`);
+    }
+
     const { data, error } = await supabase
       .from('candidates')
       .insert(candidateData)

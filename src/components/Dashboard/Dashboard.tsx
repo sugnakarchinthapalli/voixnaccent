@@ -30,7 +30,7 @@ export function Dashboard() {
     sheetsMonitorService.startMonitoring();
     
     // Set up periodic refresh
-    const interval = setInterval(loadAssessments, 30000); // Refresh every 30 seconds
+    const interval = setInterval(loadAssessments, 15000); // Refresh every 15 seconds
     
     return () => {
       clearInterval(interval);
@@ -96,7 +96,9 @@ export function Dashboard() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
+      console.log('Manual sync triggered...');
       await sheetsMonitorService.manualSync();
+      console.log('Manual sync completed, reloading assessments...');
       await loadAssessments();
     } finally {
       setRefreshing(false);
