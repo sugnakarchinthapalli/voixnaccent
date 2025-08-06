@@ -82,13 +82,22 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
   }
 
   try {
-    // First, fetch the audio file
-    const audioResponse = await fetch(audioUrl);
+    // Process the audio URL to get the direct link
+    const directAudioUrl = await getDirectAudioUrl(audioUrl);
+    
+    // Fetch the audio file using the direct URL
+    const audioResponse = await fetch(directAudioUrl);
     if (!audioResponse.ok) {
-      throw new Error(`Failed to fetch audio: ${audioResponse.statusText}`);
+      throw new Error(`Failed to fetch audio from ${directAudioUrl}: ${audioResponse.statusText}`);
     }
 
     const audioBlob = await audioResponse.blob();
+    
+    // Validate that we got an audio file
+    if (!audioBlob.type.startsWith('audio/')) {
+      throw new Error(`Expected audio file, but got: ${audioBlob.type}`);
+    }
+    
     const audioBase64 = await blobToBase64(audioBlob);
     
     // Remove the data URL prefix if present
@@ -160,6 +169,114 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
   } catch (error) {
     console.error('Error assessing audio with Gemini:', error);
     throw error;
+  }
+}
+
+async function getDirectAudioUrl(audioUrl: string): Promise<string> {
+  // Check if it's a voca.ro link that needs processing
+  if (audioUrl.includes('voca.ro/') || audioUrl.includes('vocaroo.com/')) {
+    return await extractVocarooDirectLink(audioUrl);
+  }
+  
+  // For other URLs (like Google Drive), return as-is or process accordingly
+  return audioUrl;
+}
+
+async function extractVocarooDirectLink(vocarooUrl: string): Promise<string> {
+  try {
+    console.log(`Extracting direct link from: ${vocarooUrl}`);
+    
+    // Normalize the URL to ensure it's in the correct format
+    let normalizedUrl = vocarooUrl.trim();
+    
+    // Convert voca.ro to vocaroo.com format for consistency
+    if (normalizedUrl.includes('voca.ro/')) {
+      const match = normalizedUrl.match(/voca\.ro\/([a-zA-Z0-9]+)/);
+      if (match && match[1]) {
+        normalizedUrl = `https://vocaroo.com/${match[1]}`;
+      }
+    }
+    
+    // Ensure it starts with https://
+    if (!normalizedUrl.startsWith('http')) {
+      normalizedUrl = `https://${normalizedUrl}`;
+    }
+    
+    console.log(`Fetching HTML from: ${normalizedUrl}`);
+    
+    // Fetch the HTML page
+    const response = await fetch(normalizedUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch Vocaroo page: ${response.status} ${response.statusText}`);
+    }
+    
+    const html = await response.text();
+    console.log('HTML fetched successfully, extracting audio URL...');
+    
+    // Try multiple patterns to extract the direct audio URL
+    const patterns = [
+      // Pattern 1: Look for media URLs in script tags
+      /https:\/\/media\d*\.vocaroo\.com\/mp3\/[a-zA-Z0-9]+/g,
+      // Pattern 2: Look for audio src attributes
+      /src=["']([^"']*media\d*\.vocaroo\.com[^"']*\.mp3[^"']*)["']/g,
+      // Pattern 3: Look for playback URLs in JavaScript
+      /playbackUrl["']?\s*:\s*["']([^"']*media\d*\.vocaroo\.com[^"']*\.mp3[^"']*)["']/g,
+      // Pattern 4: Look for any media.vocaroo.com URLs
+      /["']([^"']*media\d*\.vocaroo\.com[^"']*\.mp3[^"']*)["']/g
+    ];
+    
+    for (const pattern of patterns) {
+      const matches = html.match(pattern);
+      if (matches && matches.length > 0) {
+        // Extract the URL from the match
+        let directUrl = matches[0];
+        
+        // Clean up the URL if it has quotes or other characters
+        directUrl = directUrl.replace(/["']/g, '');
+        directUrl = directUrl.replace(/src=/, '');
+        directUrl = directUrl.replace(/playbackUrl\s*:\s*/, '');
+        
+        // Ensure it starts with https://
+        if (!directUrl.startsWith('http')) {
+          directUrl = `https://${directUrl}`;
+        }
+        
+        console.log(`Direct audio URL extracted: ${directUrl}`);
+        return directUrl;
+      }
+    }
+    
+    // If no direct URL found, try to construct it from the ID
+    const idMatch = normalizedUrl.match(/vocaroo\.com\/([a-zA-Z0-9]+)/);
+    if (idMatch && idMatch[1]) {
+      const recordingId = idMatch[1];
+      // Try common media server patterns
+      const possibleUrls = [
+        `https://media1.vocaroo.com/mp3/${recordingId}`,
+        `https://media.vocaroo.com/mp3/${recordingId}`,
+        `https://media1.vocaroo.com/mp3/${recordingId}.mp3`,
+        `https://media.vocaroo.com/mp3/${recordingId}.mp3`
+      ];
+      
+      // Test each URL to see which one works
+      for (const testUrl of possibleUrls) {
+        try {
+          const testResponse = await fetch(testUrl, { method: 'HEAD' });
+          if (testResponse.ok && testResponse.headers.get('content-type')?.startsWith('audio/')) {
+            console.log(`Direct audio URL found via testing: ${testUrl}`);
+            return testUrl;
+          }
+        } catch (e) {
+          // Continue to next URL
+        }
+      }
+    }
+    
+    throw new Error('Could not extract direct audio URL from Vocaroo page');
+    
+  } catch (error) {
+    console.error('Error extracting Vocaroo direct link:', error);
+    throw new Error(`Failed to extract direct audio link from Vocaroo: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
