@@ -111,12 +111,6 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
         setUploadProgress(75);
         
         console.log('File uploaded successfully:', audioSource);
-      if (uploadMethod === 'file' && uploadedFile) {
-        console.error('Storage error:', err);
-        if (err instanceof Error && err.message.includes('RLS policies not configured')) {
-          setError('Storage not properly configured. Please contact your administrator to set up file upload permissions.');
-          return;
-        }
       }
       setUploadProgress(90);
 
@@ -130,6 +124,18 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
 
       // Add to queue with high priority (manual uploads get priority)
       await assessmentService.addToQueue(candidate.id, 10);
+
+      setUploadProgress(100);
+      setSuccess(true);
+    } catch (err) {
+      console.error('Upload error:', err);
+      if (uploadMethod === 'file' && uploadedFile) {
+        console.error('Storage error:', err);
+        if (err instanceof Error && err.message.includes('RLS policies not configured')) {
+          setError('Storage not properly configured. Please contact your administrator to set up file upload permissions.');
+          return;
+        }
+      }
       setError(err instanceof Error ? err.message : 'An error occurred while processing your request');
     } finally {
       setUploading(false);
