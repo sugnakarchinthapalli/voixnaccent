@@ -130,15 +130,6 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
 
       // Add to queue with high priority (manual uploads get priority)
       await assessmentService.addToQueue(candidate.id, 10);
-
-      setSuccess(true);
-      setTimeout(() => {
-        onSuccess();
-      }, 2000);
-      
-      setUploadProgress(100);
-
-    } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred while processing your request');
     } finally {
       setUploading(false);
@@ -301,9 +292,6 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
                       <p className="text-xs text-gray-500">
                         Supports MP3, WAV, M4A, OGG, AAC (max 50MB)
                       </p>
-                      <div className="mt-2 p-2 bg-yellow-50 rounded text-xs text-yellow-700">
-                        <strong>Note:</strong> File uploads require Supabase Storage to be configured
-                      </div>
                     </div>
                   )}
                 </div>
