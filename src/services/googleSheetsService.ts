@@ -1,8 +1,8 @@
 import { GoogleSheetsEntry } from '../types';
 
 const SHEETS_API_KEY = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY;
-const SHEET_ID = '1TgNQyTdASbcrcrX3f1ixZ9-egAGNh4Aod4ZhoZZF020';
-const RANGE = 'Form Responses 1!A:F';
+const SHEET_ID = '1R_y2bPxb3evpk_u2VwvVC2PpT2FzxKPSRmGMvUJXaQo';
+const RANGE = 'Form Responses!A:F';
 
 export async function fetchGoogleSheetsData(): Promise<GoogleSheetsEntry[]> {
   if (!SHEETS_API_KEY) {
