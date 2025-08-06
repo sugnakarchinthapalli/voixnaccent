@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Eye, Calendar, User, Mail } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye, Calendar, User, Mail, Trash2 } from 'lucide-react';
 import { Assessment } from '../../types';
 import { ScoreBadge } from '../UI/ScoreBadge';
 import { AssessmentDetails } from './AssessmentDetails';
+import { assessmentService } from '../../services/assessmentService';
+import { Button } from '../UI/Button';
 
 interface AssessmentTableProps {
   assessments: Assessment[];
+  onAssessmentDeleted?: () => void;
 }
 
-export function AssessmentTable({ assessments }: AssessmentTableProps) {
+export function AssessmentTable({ assessments, onAssessmentDeleted }: AssessmentTableProps) {
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
   const [sortField, setSortField] = useState<keyof Assessment>('assessment_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleSort = (field: keyof Assessment) => {
     if (sortField === field) {
@@ -73,6 +77,23 @@ export function AssessmentTable({ assessments }: AssessmentTableProps) {
     ];
 
     return Math.round(competencyScores.reduce((sum, score) => sum + score, 0) / competencyScores.length * 10) / 10;
+  };
+
+  const handleDeleteAssessment = async (assessmentId: string, candidateName: string) => {
+    if (!confirm(`Are you sure you want to delete the assessment for ${candidateName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingId(assessmentId);
+    try {
+      await assessmentService.deleteAssessment(assessmentId);
+      onAssessmentDeleted?.();
+    } catch (error) {
+      console.error('Error deleting assessment:', error);
+      alert('Failed to delete assessment. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (assessments.length === 0) {
@@ -196,13 +217,27 @@ export function AssessmentTable({ assessments }: AssessmentTableProps) {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      onClick={() => setSelectedAssessment(assessment)}
-                      className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
-                    >
-                      <Eye className="h-4 w-4" />
-                      <span>View Details</span>
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setSelectedAssessment(assessment)}
+                        className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
+                      >
+                        <Eye className="h-4 w-4" />
+                        <span>View</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAssessment(assessment.id, assessment.candidate?.name || 'Unknown')}
+                        disabled={deletingId === assessment.id}
+                        className="text-red-600 hover:text-red-900 flex items-center space-x-1 disabled:opacity-50"
+                      >
+                        {deletingId === assessment.id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                        <span>Delete</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

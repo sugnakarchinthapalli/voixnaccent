@@ -248,7 +248,10 @@ export function Dashboard() {
         </div>
 
         {/* Assessment Table */}
-        <AssessmentTable assessments={filteredAssessments} />
+        <AssessmentTable 
+          assessments={filteredAssessments} 
+          onAssessmentDeleted={loadAssessments}
+        />
 
         {/* Manual Upload Modal */}
         {showUpload && (

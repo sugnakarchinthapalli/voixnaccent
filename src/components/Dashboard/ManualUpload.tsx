@@ -3,6 +3,7 @@ import { X, Upload, Link, AlertCircle, CheckCircle } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '../UI/Button';
 import { assessmentService } from '../../services/assessmentService';
+import { storageService } from '../../services/storageService';
 
 function validateAudioSource(audioSource: string): boolean {
   const trimmed = audioSource.trim();
@@ -34,6 +35,7 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [uploadMethod, setUploadMethod] = useState<'file' | 'link'>('file');
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
@@ -97,12 +99,21 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
       let audioSource = vocarooLink;
       
       if (uploadMethod === 'file' && uploadedFile) {
-        // TODO: Implement file upload to storage service (e.g., Supabase Storage)
-        // For now, we'll use a placeholder URL
-        console.log('File upload selected:', uploadedFile.name);
-        console.log('TODO: Upload file to storage and get URL');
-        audioSource = `placeholder://file-upload/${uploadedFile.name}`;
+        console.log('Uploading file to Supabase Storage:', uploadedFile.name);
+        setUploadProgress(25);
+        
+        // Ensure bucket exists
+        await storageService.ensureBucketExists();
+        setUploadProgress(50);
+        
+        // Upload file and get public URL
+        audioSource = await storageService.uploadAudioFile(uploadedFile);
+        setUploadProgress(75);
+        
+        console.log('File uploaded successfully:', audioSource);
       }
+
+      setUploadProgress(90);
 
       // Create candidate and add to assessment queue
       const candidate = await assessmentService.createCandidate({
@@ -119,11 +130,14 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
       setTimeout(() => {
         onSuccess();
       }, 2000);
+      
+      setUploadProgress(100);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred while processing your request');
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -138,6 +152,17 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
           <p className="text-gray-600 mb-4">
             {candidateName}'s assessment has been added to the processing queue. You'll see the results in the dashboard shortly.
           </p>
+          {uploadProgress > 0 && uploadProgress < 100 && (
+            <div className="mb-4">
+              <div className="bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">Uploading... {uploadProgress}%</p>
+            </div>
+          )}
           <Button onClick={onSuccess} className="w-full">
             Continue
           </Button>
@@ -234,6 +259,9 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
                 <p className="mt-2 text-sm text-gray-500">
                   Enter a valid Vocaroo recording link (voca.ro or vocaroo.com) or direct audio URL
                 </p>
+                <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                  <strong>Tip:</strong> Vocaroo links work great and don't require file storage setup
+                </div>
               </div>
             ) : (
               <div>
@@ -268,6 +296,9 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
                       <p className="text-xs text-gray-500">
                         Supports MP3, WAV, M4A, OGG, AAC (max 50MB)
                       </p>
+                      <div className="mt-2 p-2 bg-yellow-50 rounded text-xs text-yellow-700">
+                        <strong>Note:</strong> File uploads require Supabase Storage to be configured
+                      </div>
                     </div>
                   )}
                 </div>
@@ -297,8 +328,13 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
               type="submit"
               loading={uploading}
               disabled={uploading}
+              className="relative"
             >
-              {uploading ? 'Processing...' : 'Start Assessment'}
+              {uploading ? (
+                uploadMethod === 'file' && uploadProgress > 0 ? 
+                  `Uploading... ${uploadProgress}%` : 
+                  'Processing...'
+              ) : 'Start Assessment'}
             </Button>
           </div>
         </form>
