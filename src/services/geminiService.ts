@@ -17,7 +17,7 @@ const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 const ASSESSMENT_PROMPT = `
-You are an expert voice assessment AI specializing in evaluating Indian English speakers. Analyze the provided audio and score it based on these 6 competencies using a 1-5 scale. Please be culturally sensitive and consider that most candidates will be Indian English speakers, so adjust expectations accordingly:
+You are an expert voice assessment AI specializing in evaluating Indian English speakers for professional assessors. Analyze the provided audio and score it based on these 6 competencies using a 1-5 scale. Provide feedback from the assessor's perspective about the candidate's performance. Please be culturally sensitive and consider that most candidates will be Indian English speakers, so adjust expectations accordingly:
 
 **Scoring Criteria:**
 1. **Clarity & Articulation** (1-5):
@@ -70,16 +70,16 @@ You are an expert voice assessment AI specializing in evaluating Indian English 
 
 **Response Format (JSON only):**
 {
-  "clarity_articulation": {"score": X, "feedback": "Brief explanation"},
-  "pace": {"score": X, "feedback": "Brief explanation"},
-  "tone_modulation": {"score": X, "feedback": "Brief explanation"},
-  "accent_neutrality": {"score": X, "feedback": "Brief explanation"},
-  "confidence_energy": {"score": X, "feedback": "Brief explanation"},
-  "grammar_fluency": {"score": X, "feedback": "Brief explanation"},
-  "overall_feedback": "2-3 sentence summary of the assessment"
+  "clarity_articulation": {"score": X, "feedback": "The candidate's speech clarity is... [assessor perspective]"},
+  "pace": {"score": X, "feedback": "The candidate's speaking pace is... [assessor perspective]"},
+  "tone_modulation": {"score": X, "feedback": "The candidate demonstrates... [assessor perspective]"},
+  "accent_neutrality": {"score": X, "feedback": "The candidate's accent is... [assessor perspective]"},
+  "confidence_energy": {"score": X, "feedback": "The candidate shows... [assessor perspective]"},
+  "grammar_fluency": {"score": X, "feedback": "The candidate's grammar and fluency... [assessor perspective]"},
+  "overall_feedback": "Overall assessment: The candidate... [2-3 sentence summary from assessor perspective]"
 }
 
-Analyze the audio and provide scores with brief, constructive, and culturally sensitive feedback for each competency. Remember that effective communication is more important than perfect accent neutrality.
+Analyze the audio and provide scores with brief, professional feedback about the candidate's performance from an assessor's perspective. Write all feedback as observations about the candidate (e.g., "The candidate speaks clearly...", "The candidate's pace is...", "The candidate demonstrates..."). Remember that effective communication is more important than perfect accent neutrality.
 `;
 
 export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAssessmentResult> {
