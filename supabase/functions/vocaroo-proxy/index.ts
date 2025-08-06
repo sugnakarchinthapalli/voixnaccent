@@ -92,7 +92,18 @@ async function extractAndFetchVocarooAudio(vocarooUrl: string): Promise<VocarooR
     console.log('Fetching Vocaroo HTML page...')
     const htmlResponse = await fetch(normalizedUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'max-age=0'
       }
     })
 
@@ -117,7 +128,17 @@ async function extractAndFetchVocarooAudio(vocarooUrl: string): Promise<VocarooR
     console.log('Fetching audio file...')
     const audioResponse = await fetch(directAudioUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'audio/webm,audio/ogg,audio/wav,audio/*;q=0.9,application/ogg;q=0.7,video/*;q=0.6,*/*;q=0.5',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Referer': normalizedUrl,
+        'Sec-Fetch-Dest': 'audio',
+        'Sec-Fetch-Mode': 'no-cors',
+        'Sec-Fetch-Site': 'same-site',
+        'Range': 'bytes=0-'
       }
     })
 
@@ -210,7 +231,11 @@ function extractDirectAudioUrl(html: string, originalUrl: string): string {
         }
         
         console.log(`Extracted potential URL: ${directUrl}`)
-        return directUrl
+        
+        // Test the URL before returning it
+        if (await testAudioUrl(directUrl, originalUrl)) {
+          return directUrl
+        }
       }
     }
   }
@@ -219,12 +244,60 @@ function extractDirectAudioUrl(html: string, originalUrl: string): string {
   const idMatch = originalUrl.match(/vocaroo\.com\/([a-zA-Z0-9]+)/)
   if (idMatch && idMatch[1]) {
     const recordingId = idMatch[1]
-    const constructedUrl = `https://media1.vocaroo.com/mp3/${recordingId}`
-    console.log(`Fallback: constructed URL ${constructedUrl}`)
-    return constructedUrl
+    
+    // Try multiple media server variations
+    const possibleUrls = [
+      `https://media1.vocaroo.com/mp3/${recordingId}`,
+      `https://media.vocaroo.com/mp3/${recordingId}`,
+      `https://media1.vocaroo.com/mp3/${recordingId}.mp3`,
+      `https://media.vocaroo.com/mp3/${recordingId}.mp3`
+    ]
+    
+    for (const url of possibleUrls) {
+      console.log(`Testing fallback URL: ${url}`)
+      if (await testAudioUrl(url, originalUrl)) {
+        return url
+      }
+    }
   }
   
   throw new Error('Could not extract direct audio URL from HTML')
+}
+
+async function testAudioUrl(audioUrl: string, refererUrl: string): Promise<boolean> {
+  try {
+    console.log(`Testing audio URL: ${audioUrl}`)
+    
+    const response = await fetch(audioUrl, {
+      method: 'HEAD',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'audio/webm,audio/ogg,audio/wav,audio/*;q=0.9,application/ogg;q=0.7,video/*;q=0.6,*/*;q=0.5',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Referer': refererUrl,
+        'Sec-Fetch-Dest': 'audio',
+        'Sec-Fetch-Mode': 'no-cors',
+        'Sec-Fetch-Site': 'same-site'
+      }
+    })
+    
+    if (response.ok) {
+      const contentType = response.headers.get('content-type')
+      const isAudio = contentType && contentType.startsWith('audio/')
+      console.log(`URL test result: ${response.status}, Content-Type: ${contentType}, Is Audio: ${isAudio}`)
+      return isAudio || false
+    }
+    
+    console.log(`URL test failed: ${response.status} ${response.statusText}`)
+    return false
+    
+  } catch (error) {
+    console.log(`URL test error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    return false
+  }
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
