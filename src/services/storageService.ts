@@ -74,32 +74,20 @@ export class StorageService {
 
   async ensureBucketExists(): Promise<void> {
     try {
-      // Check if bucket exists
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-      
-      if (listError) {
-        console.error('Error listing buckets:', listError);
-        return;
+      // Just check if we can access the bucket - don't try to create it
+      const { data, error } = await supabase.storage
+        .from(this.bucketName)
+        .list('', { limit: 1 });
+
+      if (error && error.message.includes('Bucket not found')) {
+        throw new Error(`Storage bucket '${this.bucketName}' not found. Please create it manually in Supabase Dashboard with public access enabled.`);
       }
 
-      const bucketExists = buckets?.some(bucket => bucket.name === this.bucketName);
-      
-      if (!bucketExists) {
-        console.log(`Creating bucket: ${this.bucketName}`);
-        
-        const { error: createError } = await supabase.storage.createBucket(this.bucketName, {
-          public: true,
-          allowedMimeTypes: ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/ogg', 'audio/aac'],
-          fileSizeLimit: 50 * 1024 * 1024 // 50MB
-        });
-
-        if (createError) {
-          console.error('Error creating bucket:', createError);
-          throw new Error(`Failed to create storage bucket: ${createError.message}`);
-        }
-
-        console.log('Bucket created successfully');
+      if (error && !error.message.includes('Bucket not found')) {
+        console.warn('Storage access check warning:', error);
       }
+
+      console.log('Storage bucket access verified');
     } catch (error) {
       console.error('Error ensuring bucket exists:', error);
       throw error;

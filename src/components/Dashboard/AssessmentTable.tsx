@@ -87,7 +87,9 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
     setDeletingId(assessmentId);
     try {
       await assessmentService.deleteAssessment(assessmentId);
-      onAssessmentDeleted?.();
+      if (onAssessmentDeleted) {
+        await onAssessmentDeleted();
+      }
     } catch (error) {
       console.error('Error deleting assessment:', error);
       alert('Failed to delete assessment. Please try again.');

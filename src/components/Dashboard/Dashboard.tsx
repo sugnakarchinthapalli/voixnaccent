@@ -37,9 +37,15 @@ export function Dashboard() {
   }, [assessments, searchQuery, filters]);
 
   const loadAssessments = async () => {
+    const wasLoading = loading;
+    if (!wasLoading) {
+      setLoading(true);
+    }
+    
     try {
       const data = await assessmentService.getAllAssessments();
       setAssessments(data);
+      console.log(`Loaded ${data.length} assessments`);
     } catch (error) {
       console.error('Error loading assessments:', error);
     } finally {
