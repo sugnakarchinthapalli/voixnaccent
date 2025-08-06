@@ -15,7 +15,6 @@ interface GeminiAssessmentResult {
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 const ASSESSMENT_PROMPT = `
 You are an expert voice assessment AI. Analyze the provided audio and score it based on these 6 competencies using a 1-5 scale:
@@ -168,10 +167,10 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
 async function getAudioData(audioUrl: string): Promise<{ audioBase64: string; mimeType: string }> {
   console.log(`Getting audio data for URL: ${audioUrl}`);
   
-  // Check if it's a Vocaroo link that needs proxy processing
+  // Check if it's a Vocaroo link that needs conversion
   if (audioUrl.includes('voca.ro/') || audioUrl.includes('vocaroo.com/')) {
-    console.log('Detected Vocaroo URL, using proxy...');
-    return await getVocarooAudioViaProxy(audioUrl);
+    console.log('Detected Vocaroo URL, converting to direct link...');
+    return await getVocarooAudioDirect(audioUrl);
   }
   
   // For other URLs (like Google Drive), fetch directly
@@ -179,51 +178,62 @@ async function getAudioData(audioUrl: string): Promise<{ audioBase64: string; mi
   return await fetchAudioDirectly(audioUrl);
 }
 
-async function getVocarooAudioViaProxy(vocarooUrl: string): Promise<{ audioBase64: string; mimeType: string }> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error('Supabase configuration not found');
-  }
-
+async function getVocarooAudioDirect(vocarooUrl: string): Promise<{ audioBase64: string; mimeType: string }> {
   try {
-    console.log(`Using Vocaroo proxy for URL: ${vocarooUrl}`);
+    console.log(`Converting Vocaroo URL to direct link: ${vocarooUrl}`);
     
-    const proxyUrl = `${SUPABASE_URL}/functions/v1/vocaroo-proxy`;
-    
-    const response = await fetch(proxyUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-      },
-      body: JSON.stringify({ vocarooUrl })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Vocaroo proxy error: ${response.status} ${response.statusText} - ${errorText}`);
-      throw new Error(`Vocaroo proxy error: ${response.status} ${response.statusText}`);
+    // Extract the recording ID from the Vocaroo URL
+    const recordingId = extractVocarooId(vocarooUrl);
+    if (!recordingId) {
+      throw new Error('Could not extract recording ID from Vocaroo URL');
     }
-
-    const result = await response.json();
     
-    if (!result.success) {
-      console.error('Vocaroo proxy failed:', result.error, result.details);
-      throw new Error(`Vocaroo proxy failed: ${result.error}`);
+    console.log(`Extracted recording ID: ${recordingId}`);
+    
+    // Try different direct URL patterns
+    const possibleUrls = [
+      `https://media1.vocaroo.com/mp3/${recordingId}`,
+      `https://media.vocaroo.com/mp3/${recordingId}`,
+      `https://media1.vocaroo.com/mp3/${recordingId}.mp3`,
+      `https://media.vocaroo.com/mp3/${recordingId}.mp3`
+    ];
+    
+    for (const directUrl of possibleUrls) {
+      try {
+        console.log(`Trying direct URL: ${directUrl}`);
+        const result = await fetchAudioDirectly(directUrl);
+        console.log(`Success with direct URL: ${directUrl}`);
+        return result;
+      } catch (error) {
+        console.log(`Failed with ${directUrl}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        continue;
+      }
     }
-
-    console.log(`Vocaroo proxy successful, audio base64 length: ${result.audioBase64.length}`);
     
-    return {
-      audioBase64: result.audioBase64,
-      mimeType: result.mimeType || 'audio/mpeg'
-    };
+    throw new Error('All direct URL attempts failed');
 
   } catch (error) {
-    console.error('Error using Vocaroo proxy:', error);
-    throw new Error(`Failed to get audio via Vocaroo proxy: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('Error getting Vocaroo audio directly:', error);
+    throw new Error(`Failed to get Vocaroo audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
+function extractVocarooId(url: string): string | null {
+  // Handle both voca.ro and vocaroo.com formats
+  const patterns = [
+    /voca\.ro\/([a-zA-Z0-9]+)/,
+    /vocaroo\.com\/([a-zA-Z0-9]+)/
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+  
+  return null;
+}
 async function fetchAudioDirectly(audioUrl: string): Promise<{ audioBase64: string; mimeType: string }> {
   try {
     console.log(`Fetching audio directly from: ${audioUrl}`);

@@ -12,9 +12,9 @@ function validateAudioSource(audioSource: string): boolean {
     return /^https?:\/\/(www\.)?(voca\.ro|vocaroo\.com)\/[a-zA-Z0-9]+/i.test(trimmed);
   }
   
-  // Check for Google Drive links
-  if (trimmed.includes('drive.google.com')) {
-    return /^https?:\/\/drive\.google\.com\/.*\/d\/[a-zA-Z0-9_-]+/i.test(trimmed);
+  // Check for direct audio URLs
+  if (trimmed.match(/\.(mp3|wav|m4a|ogg|aac)(\?.*)?$/i)) {
+    return /^https?:\/\/.+\.(mp3|wav|m4a|ogg|aac)(\?.*)?$/i.test(trimmed);
   }
   
   return false;
@@ -232,7 +232,7 @@ export function ManualUpload({ onClose, onSuccess }: ManualUploadProps) {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <p className="mt-2 text-sm text-gray-500">
-                  Enter a valid Vocaroo recording link (voca.ro or vocaroo.com)
+                  Enter a valid Vocaroo recording link (voca.ro or vocaroo.com) or direct audio URL
                 </p>
               </div>
             ) : (
