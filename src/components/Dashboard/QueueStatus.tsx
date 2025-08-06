@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, PlayCircle, CheckCircle, AlertCircle } from 'lucide-react';
+import { Clock, PlayCircle, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import { assessmentService } from '../../services/assessmentService';
 
 export function QueueStatus() {
   const [queueStatus, setQueueStatus] = useState({
     pending: 0,
     processing: 0,
-    position: null as number | null
+    position: null as number | null,
+    failed: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -41,7 +42,7 @@ export function QueueStatus() {
 
   const totalInQueue = queueStatus.pending + queueStatus.processing;
 
-  if (totalInQueue === 0) {
+  if (totalInQueue === 0 && queueStatus.failed === 0) {
     return (
       <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
         <div className="flex items-center">
@@ -55,18 +56,54 @@ export function QueueStatus() {
     );
   }
 
+  // Show failed assessments if any
+  if (queueStatus.failed > 0 && totalInQueue === 0) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <XCircle className="h-5 w-5 text-red-600 mr-3" />
+            <div>
+              <p className="text-sm font-medium text-red-800">Assessment Queue</p>
+              <p className="text-sm text-red-700">
+                {queueStatus.failed} assessment{queueStatus.failed > 1 ? 's' : ''} failed after multiple retries. 
+                AI service may be experiencing issues.
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-lg font-bold text-red-900">{queueStatus.failed}</div>
+            <div className="text-xs text-red-700">failed</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+    <div className={`rounded-lg p-4 mb-6 ${
+      queueStatus.failed > 0 
+        ? 'bg-yellow-50 border border-yellow-200' 
+        : 'bg-blue-50 border border-blue-200'
+    }`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           {queueStatus.processing > 0 ? (
-            <PlayCircle className="h-5 w-5 text-blue-600 mr-3 animate-pulse" />
+            <PlayCircle className={`h-5 w-5 mr-3 animate-pulse ${
+              queueStatus.failed > 0 ? 'text-yellow-600' : 'text-blue-600'
+            }`} />
           ) : (
-            <Clock className="h-5 w-5 text-blue-600 mr-3" />
+            <Clock className={`h-5 w-5 mr-3 ${
+              queueStatus.failed > 0 ? 'text-yellow-600' : 'text-blue-600'
+            }`} />
           )}
           <div>
-            <p className="text-sm font-medium text-blue-800">Assessment Queue Status</p>
-            <p className="text-sm text-blue-700">
+            <p className={`text-sm font-medium ${
+              queueStatus.failed > 0 ? 'text-yellow-800' : 'text-blue-800'
+            }`}>Assessment Queue Status</p>
+            <p className={`text-sm ${
+              queueStatus.failed > 0 ? 'text-yellow-700' : 'text-blue-700'
+            }`}>
               {queueStatus.processing > 0 && (
                 <span className="font-medium">
                   {queueStatus.processing} processing now • {' '}
@@ -77,30 +114,48 @@ export function QueueStatus() {
                   {queueStatus.pending} pending
                 </span>
               )}
+              {queueStatus.failed > 0 && (
+                <span className="text-red-600 font-medium">
+                  {queueStatus.pending > 0 || queueStatus.processing > 0 ? ' • ' : ''}
+                  {queueStatus.failed} failed (will retry)
+                </span>
+              )}
             </p>
           </div>
         </div>
         
         <div className="flex items-center space-x-4">
           {queueStatus.processing > 0 && (
-            <div className="flex items-center text-sm text-blue-700">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+            <div className={`flex items-center text-sm ${
+              queueStatus.failed > 0 ? 'text-yellow-700' : 'text-blue-700'
+            }`}>
+              <div className={`animate-spin rounded-full h-4 w-4 border-b-2 mr-2 ${
+                queueStatus.failed > 0 ? 'border-yellow-600' : 'border-blue-600'
+              }`}></div>
               Processing
             </div>
           )}
           
           <div className="text-right">
-            <div className="text-lg font-bold text-blue-900">{totalInQueue}</div>
-            <div className="text-xs text-blue-700">in queue</div>
+            <div className={`text-lg font-bold ${
+              queueStatus.failed > 0 ? 'text-yellow-900' : 'text-blue-900'
+            }`}>{totalInQueue}</div>
+            <div className={`text-xs ${
+              queueStatus.failed > 0 ? 'text-yellow-700' : 'text-blue-700'
+            }`}>in queue</div>
           </div>
         </div>
       </div>
       
       {queueStatus.processing > 0 && (
-        <div className="mt-3 pt-3 border-t border-blue-200">
-          <div className="flex items-center text-xs text-blue-600">
+        <div className={`mt-3 pt-3 border-t ${
+          queueStatus.failed > 0 ? 'border-yellow-200' : 'border-blue-200'
+        }`}>
+          <div className={`flex items-center text-xs ${
+            queueStatus.failed > 0 ? 'text-yellow-600' : 'text-blue-600'
+          }`}>
             <AlertCircle className="h-3 w-3 mr-1" />
-            <span>Processing up to 2 assessments simultaneously with 3-second delays between API calls</span>
+            <span>Processing up to 2 assessments simultaneously with automatic retry on failures</span>
           </div>
         </div>
       )}

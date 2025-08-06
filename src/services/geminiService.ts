@@ -16,6 +16,11 @@ interface GeminiAssessmentResult {
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const BASE_DELAY = 2000; // 2 seconds
+const MAX_DELAY = 30000; // 30 seconds
+
 const ASSESSMENT_PROMPT = `
 You are an expert voice assessment AI specializing in evaluating Indian English speakers for professional assessors. Analyze the provided audio and score it based on these 6 competencies using a 1-5 scale. Provide feedback from the assessor's perspective about the candidate's performance. Please be culturally sensitive and consider that most candidates will be Indian English speakers, so adjust expectations accordingly:
 
@@ -87,87 +92,175 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
     throw new Error('Gemini API key not configured');
   }
 
-  try {
-    console.log(`Starting assessment for audio URL: ${audioUrl}`);
+  return await retryWithBackoff(async () => {
+    try {
+      console.log(`Starting assessment for audio URL: ${audioUrl}`);
 
-    // Get audio data
-    const { audioBase64, mimeType } = await getAudioData(audioUrl);
-    
-    console.log(`Audio data obtained, mime type: ${mimeType}, base64 length: ${audioBase64.length}`);
+      // Get audio data
+      const { audioBase64, mimeType } = await getAudioData(audioUrl);
+      
+      console.log(`Audio data obtained, mime type: ${mimeType}, base64 length: ${audioBase64.length}`);
 
-    const requestBody = {
-      contents: [
-        {
-          parts: [
-            {
-              text: ASSESSMENT_PROMPT
-            },
-            {
-              inline_data: {
-                mime_type: mimeType,
-                data: audioBase64
+      const requestBody = {
+        contents: [
+          {
+            parts: [
+              {
+                text: ASSESSMENT_PROMPT
+              },
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: audioBase64
+                }
               }
-            }
-          ]
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          topK: 32,
+          topP: 1,
+          maxOutputTokens: 1024,
         }
-      ],
-      generationConfig: {
-        temperature: 0.1,
-        topK: 32,
-        topP: 1,
-        maxOutputTokens: 1024,
+      };
+
+      console.log('Sending request to Gemini API...');
+      const response = await fetch(GEMINI_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
+        
+        // Parse error response to get better error messages
+        let errorMessage = `Gemini API error: ${response.status} ${response.statusText}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error && errorData.error.message) {
+            errorMessage = errorData.error.message;
+          }
+        } catch (e) {
+          // Use default error message if parsing fails
+        }
+        
+        // Create specific error types for different scenarios
+        if (response.status === 503) {
+          throw new GeminiOverloadedError(errorMessage);
+        } else if (response.status === 429) {
+          throw new GeminiRateLimitError(errorMessage);
+        } else if (response.status >= 500) {
+          throw new GeminiServerError(errorMessage);
+        } else {
+          throw new GeminiClientError(errorMessage);
+        }
       }
-    };
 
-    console.log('Sending request to Gemini API...');
-    const response = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
-      throw new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-      console.error('Invalid response structure from Gemini API:', data);
-      throw new Error('Invalid response from Gemini API');
-    }
-
-    const generatedText = data.candidates[0].content.parts[0].text;
-    
-    // Parse the JSON response
-    const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error('Could not extract JSON from Gemini response:', generatedText);
-      throw new Error('Could not extract JSON from Gemini response');
-    }
-
-    const assessmentResult = JSON.parse(jsonMatch[0]);
-    
-    // Validate the response structure
-    const requiredFields = ['clarity_articulation', 'pace', 'tone_modulation', 'accent_neutrality', 'confidence_energy', 'grammar_fluency'];
-    for (const field of requiredFields) {
-      if (!assessmentResult[field] || typeof assessmentResult[field].score !== 'number') {
-        console.error(`Invalid assessment result: missing or invalid ${field}`, assessmentResult);
-        throw new Error(`Invalid assessment result: missing or invalid ${field}`);
+      const data = await response.json();
+      
+      if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+        console.error('Invalid response structure from Gemini API:', data);
+        throw new Error('Invalid response from Gemini API');
       }
-    }
 
-    console.log('Assessment completed successfully');
-    return assessmentResult;
-    
-  } catch (error) {
-    console.error('Error assessing audio with Gemini:', error);
-    throw error;
+      const generatedText = data.candidates[0].content.parts[0].text;
+      
+      // Parse the JSON response
+      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error('Could not extract JSON from Gemini response:', generatedText);
+        throw new Error('Could not extract JSON from Gemini response');
+      }
+
+      const assessmentResult = JSON.parse(jsonMatch[0]);
+      
+      // Validate the response structure
+      const requiredFields = ['clarity_articulation', 'pace', 'tone_modulation', 'accent_neutrality', 'confidence_energy', 'grammar_fluency'];
+      for (const field of requiredFields) {
+        if (!assessmentResult[field] || typeof assessmentResult[field].score !== 'number') {
+          console.error(`Invalid assessment result: missing or invalid ${field}`, assessmentResult);
+          throw new Error(`Invalid assessment result: missing or invalid ${field}`);
+        }
+      }
+
+      console.log('Assessment completed successfully');
+      return assessmentResult;
+      
+    } catch (error) {
+      console.error('Error assessing audio with Gemini:', error);
+      throw error;
+    }
+  });
+}
+
+// Custom error classes for better error handling
+class GeminiOverloadedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GeminiOverloadedError';
   }
+}
+
+class GeminiRateLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GeminiRateLimitError';
+  }
+}
+
+class GeminiServerError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GeminiServerError';
+  }
+}
+
+class GeminiClientError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GeminiClientError';
+  }
+}
+
+// Retry function with exponential backoff
+async function retryWithBackoff<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = MAX_RETRIES
+): Promise<T> {
+  let lastError: Error;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error as Error;
+      
+      // Don't retry on client errors (4xx) except rate limiting
+      if (error instanceof GeminiClientError && !(error instanceof GeminiRateLimitError)) {
+        throw error;
+      }
+      
+      // If this was the last attempt, throw the error
+      if (attempt === maxRetries) {
+        break;
+      }
+      
+      // Calculate delay with exponential backoff and jitter
+      const baseDelay = Math.min(BASE_DELAY * Math.pow(2, attempt), MAX_DELAY);
+      const jitter = Math.random() * 0.1 * baseDelay; // Add up to 10% jitter
+      const delay = baseDelay + jitter;
+      
+      console.log(`Gemini API attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError!;
 }
 
 async function getAudioData(audioUrl: string): Promise<{ audioBase64: string; mimeType: string }> {

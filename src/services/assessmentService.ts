@@ -61,11 +61,12 @@ export class AssessmentService {
     pending: number;
     processing: number;
     position: number | null;
+    failed: number;
   }> {
     const { data: queueItems, error } = await supabase
       .from('assessment_queue')
       .select('*')
-      .in('status', ['pending', 'processing'])
+      .in('status', ['pending', 'processing', 'failed'])
       .order('priority', { ascending: false })
       .order('created_at', { ascending: true });
 
@@ -73,8 +74,9 @@ export class AssessmentService {
 
     const pending = queueItems.filter(item => item.status === 'pending').length;
     const processing = queueItems.filter(item => item.status === 'processing').length;
+    const failed = queueItems.filter(item => item.status === 'failed').length;
     
-    return { pending, processing, position: pending > 0 ? 1 : null };
+    return { pending, processing, failed, position: pending > 0 ? 1 : null };
   }
 
   private async startQueueProcessing() {
@@ -199,28 +201,47 @@ export class AssessmentService {
     } catch (error) {
       console.error('Error processing queue item:', error);
       
+      // Create user-friendly error message
+      let userFriendlyMessage = 'An error occurred while processing the assessment';
+      
+      if (error instanceof Error) {
+        if (error.name === 'GeminiOverloadedError') {
+          userFriendlyMessage = 'AI service is currently overloaded. The assessment will be retried automatically in a few minutes.';
+        } else if (error.name === 'GeminiRateLimitError') {
+          userFriendlyMessage = 'AI service rate limit reached. The assessment will be retried automatically.';
+        } else if (error.name === 'GeminiServerError') {
+          userFriendlyMessage = 'AI service is temporarily unavailable. The assessment will be retried automatically.';
+        } else if (error.message.includes('Invalid assessment result')) {
+          userFriendlyMessage = 'AI service returned invalid results. The assessment will be retried automatically.';
+        } else if (error.message.includes('Failed to fetch audio')) {
+          userFriendlyMessage = 'Could not access the audio file. Please check the audio URL and try again.';
+        }
+      }
+      
       // Update retry count
       const newRetryCount = (queueItem.retry_count || 0) + 1;
       const maxRetries = 3;
       
       if (newRetryCount < maxRetries) {
+        console.log(`Retrying assessment (attempt ${newRetryCount + 1}/${maxRetries + 1}) for candidate: ${candidate.name}`);
         // Retry later
         await supabase
           .from('assessment_queue')
           .update({ 
             status: 'pending',
             retry_count: newRetryCount,
-            error_message: error instanceof Error ? error.message : 'Unknown error',
+            error_message: userFriendlyMessage,
             updated_at: new Date().toISOString()
           })
           .eq('id', queueItem.id);
       } else {
+        console.log(`Assessment failed permanently after ${maxRetries + 1} attempts for candidate: ${candidate.name}`);
         // Mark as failed
         await supabase
           .from('assessment_queue')
           .update({ 
             status: 'failed',
-            error_message: error instanceof Error ? error.message : 'Unknown error',
+            error_message: `Assessment failed after ${maxRetries + 1} attempts: ${userFriendlyMessage}`,
             updated_at: new Date().toISOString()
           })
           .eq('id', queueItem.id);
