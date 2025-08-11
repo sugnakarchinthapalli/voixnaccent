@@ -3,18 +3,27 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthWrapper } from './components/Auth/AuthWrapper';
 import { Header } from './components/Layout/Header';
 import { Dashboard } from './components/Dashboard/Dashboard';
+import { CandidateRecordingPage } from './components/Candidate/CandidateRecordingPage';
 
 function App() {
   return (
     <Router>
-      <AuthWrapper>
-        <div className="min-h-screen bg-gray-50">
-          <Header />
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-          </Routes>
-        </div>
-      </AuthWrapper>
+      <Routes>
+        {/* Public route for candidate assessment */}
+        <Route path="/candidate-assessment" element={<CandidateRecordingPage />} />
+        
+        {/* Protected routes for internal users */}
+        <Route path="/*" element={
+          <AuthWrapper>
+            <div className="min-h-screen bg-gray-50">
+              <Header />
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+              </Routes>
+            </div>
+          </AuthWrapper>
+        } />
+      </Routes>
     </Router>
   );
 }

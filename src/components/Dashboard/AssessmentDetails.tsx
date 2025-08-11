@@ -98,6 +98,29 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
                   {assessment.assessed_by}
                 </div>
               </div>
+              {assessment.candidate?.snapshot_url && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-500 mb-2">Candidate Verification</label>
+                  <img
+                    src={assessment.candidate.snapshot_url}
+                    alt="Candidate verification snapshot"
+                    className="w-32 h-32 object-cover rounded-lg border shadow-sm"
+                  />
+                </div>
+              )}
+              {assessment.question && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-500 mb-2">Assessment Question</label>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <p className="text-gray-700">{assessment.question.text}</p>
+                    <div className="mt-2 flex items-center text-xs text-blue-600">
+                      <span className="bg-blue-100 px-2 py-1 rounded">
+                        {assessment.question.difficulty_level}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
               {assessment.candidate?.audio_source && (
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-500 mb-2">Audio Source</label>

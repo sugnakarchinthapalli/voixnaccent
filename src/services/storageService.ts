@@ -45,6 +45,47 @@ export class StorageService {
     }
   }
 
+  async uploadImageFile(file: File | Blob, filename?: string): Promise<string> {
+    try {
+      // Generate unique filename if not provided
+      const fileExt = filename ? filename.split('.').pop() : 'jpg';
+      const fileName = filename || `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `snapshots/${fileName}`;
+
+      console.log(`Uploading image: ${fileName} (${file.size} bytes) as ${filePath}`);
+
+      // Upload file to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from(this.bucketName)
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('Storage upload error:', error);
+        throw new Error(`Failed to upload image: ${error.message}`);
+      }
+
+      console.log('Image uploaded successfully:', data);
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from(this.bucketName)
+        .getPublicUrl(filePath);
+
+      if (!urlData?.publicUrl) {
+        throw new Error('Failed to get public URL for uploaded image');
+      }
+
+      console.log('Image public URL generated:', urlData.publicUrl);
+      return urlData.publicUrl;
+
+    } catch (error) {
+      console.error('Error uploading image file:', error);
+      throw error;
+    }
+  }
   async deleteAudioFile(url: string): Promise<void> {
     try {
       // Extract file path from URL
@@ -72,6 +113,32 @@ export class StorageService {
     }
   }
 
+  async deleteImageFile(url: string): Promise<void> {
+    try {
+      // Extract file path from URL
+      const urlParts = url.split('/');
+      const bucketIndex = urlParts.findIndex(part => part === this.bucketName);
+      
+      if (bucketIndex === -1) {
+        console.warn('Could not extract file path from URL:', url);
+        return;
+      }
+
+      const filePath = urlParts.slice(bucketIndex + 1).join('/');
+      
+      const { error } = await supabase.storage
+        .from(this.bucketName)
+        .remove([filePath]);
+
+      if (error) {
+        console.error('Error deleting image:', error);
+        // Don't throw error for file deletion failures
+      }
+    } catch (error) {
+      console.error('Error deleting image file:', error);
+      // Don't throw error for file deletion failures
+    }
+  }
   async ensureBucketExists(): Promise<void> {
     try {
       // Check if we can access the bucket

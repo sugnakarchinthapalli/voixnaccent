@@ -25,6 +25,7 @@ export type Database = {
           email: string;
           audio_source: string;
           source_type: 'auto' | 'manual';
+          snapshot_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -41,9 +42,23 @@ export type Database = {
           assessed_by: string;
           assessment_date: string;
           processing_status: 'pending' | 'processing' | 'completed' | 'failed';
+          question_id: string | null;
         };
         Insert: Omit<Database['public']['Tables']['assessments']['Row'], 'id' | 'assessment_date'>;
         Update: Partial<Database['public']['Tables']['assessments']['Insert']>;
+      };
+      questions: {
+        Row: {
+          id: string;
+          text: string;
+          competencies_targeted: string[];
+          difficulty_level: 'easy' | 'medium' | 'hard';
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['questions']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['questions']['Insert']>;
       };
       assessment_queue: {
         Row: {

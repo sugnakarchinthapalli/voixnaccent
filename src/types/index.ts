@@ -4,6 +4,7 @@ export interface Candidate {
   email: string;
   audio_source: string;
   source_type: 'auto' | 'manual';
+  snapshot_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -17,7 +18,19 @@ export interface Assessment {
   assessed_by: string;
   assessment_date: string;
   processing_status: 'pending' | 'processing' | 'completed' | 'failed';
+  question_id: string | null;
   candidate?: Candidate;
+  question?: Question;
+}
+
+export interface Question {
+  id: string;
+  text: string;
+  competencies_targeted: string[];
+  difficulty_level: 'easy' | 'medium' | 'hard';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CompetencyScores {

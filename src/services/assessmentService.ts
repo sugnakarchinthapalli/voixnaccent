@@ -15,6 +15,7 @@ export class AssessmentService {
     email: string;
     audio_source: string;
     source_type: 'auto' | 'manual';
+    snapshot_url?: string;
   }): Promise<Candidate> {
     // Check for existing candidate with same email
     const { data: existingCandidate } = await supabase
@@ -37,7 +38,7 @@ export class AssessmentService {
     return data;
   }
 
-  async addToQueue(candidateId: string, priority: number = 0): Promise<QueueItem> {
+  async addToQueue(candidateId: string, priority: number = 0, questionId?: string): Promise<QueueItem> {
     const { data, error } = await supabase
       .from('assessment_queue')
       .insert({
@@ -184,7 +185,8 @@ export class AssessmentService {
           overall_grade: overallGrade,
           ai_feedback: assessmentResult.overall_feedback,
           assessed_by: assessedBy,
-          processing_status: 'completed'
+          processing_status: 'completed',
+          question_id: queueItem.question_id || null
         });
 
       if (assessmentError) throw assessmentError;
@@ -215,6 +217,16 @@ export class AssessmentService {
           userFriendlyMessage = 'AI service returned invalid results. The assessment will be retried automatically.';
         } else if (error.message.includes('Failed to fetch audio')) {
           userFriendlyMessage = 'Could not access the audio file. Please check the audio URL and try again.';
+        }
+      }
+
+      // If there's a snapshot, try to delete it from storage
+      if (candidate.snapshot_url && candidate.snapshot_url.includes('supabase')) {
+        try {
+          await storageService.deleteImageFile(candidate.snapshot_url);
+        } catch (error) {
+          console.warn('Could not delete snapshot from storage:', error);
+          // Don't throw error for storage cleanup failures
         }
       }
       
@@ -265,7 +277,8 @@ export class AssessmentService {
       .from('assessments')
       .select(`
         *,
-        candidate:candidates(*)
+        candidate:candidates(*),
+        question:questions(*)
       `)
       .eq('processing_status', 'completed')
       .order('assessment_date', { ascending: false });
@@ -279,7 +292,8 @@ export class AssessmentService {
       .from('assessments')
       .select(`
         *,
-        candidate:candidates(*)
+        candidate:candidates(*),
+        question:questions(*)
       `)
       .eq('processing_status', 'completed')
       .or(`candidate.name.ilike.%${query}%,candidate.email.ilike.%${query}%,assessed_by.ilike.%${query}%`)
@@ -299,7 +313,8 @@ export class AssessmentService {
       .from('assessments')
       .select(`
         *,
-        candidate:candidates(*)
+        candidate:candidates(*),
+        question:questions(*)
       `)
       .eq('processing_status', 'completed');
 
