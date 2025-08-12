@@ -123,46 +123,75 @@ export function CandidateRecordingPage() {
           return new Promise<void>((resolve) => {
             const video = videoRef.current;
             if (!video) {
+              console.log('Video ref not available during initialization');
               resolve();
               return;
             }
 
             const handleLoadedMetadata = () => {
               console.log('Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
+              console.log('Video readyState after metadata:', video.readyState);
+              console.log('Video currentTime:', video.currentTime);
+              console.log('Video duration:', video.duration);
               
               // Force a repaint on mobile to ensure video is visible
               if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
                 video.style.transform = 'translateZ(0)'; // Force hardware acceleration
                 video.style.webkitTransform = 'translateZ(0)';
+                console.log('Applied mobile-specific transforms');
               }
               
               video.play()
                 .then(() => {
                   console.log('Video playback started successfully');
+                  console.log('Video readyState after play:', video.readyState);
+                  console.log('Video paused state:', video.paused);
+                  console.log('Video current dimensions:', video.videoWidth, 'x', video.videoHeight);
                   resolve();
                 })
                 .catch((playError) => {
                   console.warn('Video autoplay failed, but stream is connected:', playError);
+                  console.log('Video readyState after play failure:', video.readyState);
                   // On mobile, user interaction might be required for autoplay
                   resolve();
                 });
             };
 
+            // Add comprehensive event listeners for debugging
+            const events = ['loadstart', 'loadeddata', 'loadedmetadata', 'canplay', 'canplaythrough', 'playing', 'waiting', 'seeking', 'seeked'];
+            events.forEach(eventName => {
+              video.addEventListener(eventName, () => {
+                console.log(`Video event: ${eventName}, readyState: ${video.readyState}, dimensions: ${video.videoWidth}x${video.videoHeight}`);
+              }, { once: true });
+            });
+
+            console.log('Setting video srcObject...');
+            console.log('Video readyState before srcObject:', video.readyState);
+            
+            // Explicitly load the video after setting srcObject
+            video.load();
+            console.log('Video load() called');
+            console.log('Video readyState after load():', video.readyState);
             if (video.readyState >= 1) {
+              console.log('Video already has metadata, calling handler immediately');
               handleLoadedMetadata();
             } else {
+              console.log('Waiting for loadedmetadata event...');
               video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
             }
             
             // Fallback timeout
             setTimeout(() => {
-              console.log('Video initialization timeout, proceeding anyway');
+              console.log('Video initialization timeout after 5s, proceeding anyway');
+              console.log('Final video state - readyState:', video.readyState, 'dimensions:', video.videoWidth, 'x', video.videoHeight, 'paused:', video.paused);
               resolve();
             }, 5000);
           });
         };
 
+        console.log('Starting video initialization...');
         await initializeVideo();
+        console.log('Video initialization completed');
       }
 
     } catch (err) {
@@ -245,24 +274,76 @@ Please try:
     try {
       setError('');
       
-      // Determine the best audio format
-      let mimeType = 'audio/webm;codecs=opus';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/webm';
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = 'audio/mp4';
-          if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = ''; // Let browser choose
-          }
+      console.log('Starting recording process...');
+      console.log('Available media stream tracks:', mediaStream.getTracks().map(track => ({
+        kind: track.kind,
+        enabled: track.enabled,
+        readyState: track.readyState,
+        label: track.label
+      })));
+      
+      // Test MediaRecorder support first
+      if (!window.MediaRecorder) {
+        throw new Error('MediaRecorder is not supported in this browser');
+      }
+      
+      // Comprehensive MIME type testing
+      const mimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm;codecs=vp8,opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+        'audio/mp4;codecs=mp4a.40.2',
+        'audio/mp4',
+        'audio/mpeg',
+        'audio/wav',
+        '' // Let browser choose
+      ];
+      
+      let selectedMimeType = '';
+      for (const mimeType of mimeTypes) {
+        console.log(`Testing MIME type: "${mimeType}" - Supported: ${MediaRecorder.isTypeSupported(mimeType)}`);
+        if (mimeType === '' || MediaRecorder.isTypeSupported(mimeType)) {
+          selectedMimeType = mimeType;
+          break;
         }
       }
+      
+      console.log(`Selected MIME type: "${selectedMimeType}"`);
 
-      const options = mimeType ? { mimeType } : {};
-      const recorder = new MediaRecorder(mediaStream, options);
+      // Prepare MediaRecorder options
+      const options = selectedMimeType ? { mimeType: selectedMimeType } : {};
+      console.log('MediaRecorder options:', options);
+      
+      // Create MediaRecorder with error handling
+      let recorder;
+      try {
+        recorder = new MediaRecorder(mediaStream, options);
+        console.log('MediaRecorder created successfully');
+      } catch (recorderError) {
+        console.error('Failed to create MediaRecorder:', recorderError);
+        
+        // Try without any options as fallback
+        if (selectedMimeType) {
+          console.log('Retrying MediaRecorder creation without MIME type...');
+          try {
+            recorder = new MediaRecorder(mediaStream);
+            selectedMimeType = '';
+            console.log('MediaRecorder created successfully without MIME type');
+          } catch (fallbackError) {
+            console.error('MediaRecorder creation failed even without options:', fallbackError);
+            throw new Error(`MediaRecorder not supported: ${fallbackError.message}`);
+          }
+        } else {
+          throw new Error(`MediaRecorder creation failed: ${recorderError.message}`);
+        }
+      }
       
       const chunks: Blob[] = [];
       
       recorder.ondataavailable = (event) => {
+        console.log('Data available event:', event.data.size, 'bytes');
         if (event.data.size > 0) {
           chunks.push(event.data);
         }
@@ -274,22 +355,28 @@ Please try:
         
         // Create audio URL for review
         if (chunks.length > 0) {
-          const audioBlob = new Blob(chunks, { type: mimeType || 'audio/webm' });
+          const audioBlob = new Blob(chunks, { type: selectedMimeType || 'audio/webm' });
           const audioUrl = URL.createObjectURL(audioBlob);
           setRecordedAudioUrl(audioUrl);
-          console.log('Audio URL created for review');
+          console.log('Audio URL created for review, blob size:', audioBlob.size, 'bytes');
         }
+      };
+      
+      recorder.onerror = (event) => {
+        console.error('MediaRecorder error:', event);
+        setError('Recording error occurred. Please try again.');
       };
       
       recorder.start(1000); // Collect data every second
       setMediaRecorder(recorder);
       setRecordingState('recording');
       
-      console.log('Recording started with MIME type:', mimeType || 'browser default');
+      console.log('Recording started with MIME type:', selectedMimeType || 'browser default');
+      console.log('MediaRecorder state:', recorder.state);
       
     } catch (err) {
       console.error('Error starting recording:', err);
-      setError('Failed to start recording. Please try again.');
+      setError(`Failed to start recording: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again.`);
     }
   };
 
