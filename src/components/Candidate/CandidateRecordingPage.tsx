@@ -86,27 +86,62 @@ export function CandidateRecordingPage() {
       setError('');
       setRecordingState('preparing');
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100
-        }
-      });
+      let stream: MediaStream;
+      let hasVideo = false;
+
+      try {
+        // First try to get both video and audio
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100
+          }
+        });
+        hasVideo = true;
+      } catch (videoError) {
+        console.warn('Video access failed, trying audio only:', videoError);
+        
+        // Fallback to audio only
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100
+          }
+        });
+        hasVideo = false;
+        setError('Camera unavailable - proceeding with audio-only recording. Identity verification will be limited.');
+      }
 
       setMediaStream(stream);
       
-      if (videoRef.current) {
+      if (videoRef.current && hasVideo) {
         videoRef.current.srcObject = stream;
         videoRef.current.play().catch(console.error);
+      } else if (videoRef.current) {
+        videoRef.current.style.display = 'none';
       }
 
       // Initialize MediaRecorder with only audio track
       const audioStream = new MediaStream([stream.getAudioTracks()[0]]);
-      const recorder = new MediaRecorder(audioStream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      
+      // Check for supported audio MIME types
+      let mimeType = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        if (MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+          mimeType = 'audio/ogg';
+        } else {
+          mimeType = ''; // Let browser choose
+        }
+      }
+
+      const recorder = new MediaRecorder(audioStream, mimeType ? { mimeType } : {});
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -123,15 +158,19 @@ export function CandidateRecordingPage() {
 
     } catch (err) {
       console.error('Error accessing media devices:', err);
-      setError(`Unable to access camera and microphone: ${err instanceof Error ? err.message : 'Unknown error'}. Please ensure you have granted permissions and try again.`);
+      setError(`Unable to access microphone: ${err instanceof Error ? err.message : 'Unknown error'}. Please ensure you have granted microphone permissions and try again.`);
       setRecordingState('error');
     }
   };
 
   const captureSnapshot = () => {
-    if (!videoRef.current || !canvasRef.current) return null;
+    if (!videoRef.current || !canvasRef.current || !mediaStream) return null;
 
     const video = videoRef.current;
+    
+    // Check if video track exists and is active
+    if (!mediaStream.getVideoTracks().length || !mediaStream.getVideoTracks()[0].enabled) return null;
+    
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
 
@@ -164,7 +203,7 @@ export function CandidateRecordingPage() {
       // Capture snapshot at random time (between 10-110 seconds)
       const randomSnapshotTime = Math.floor(Math.random() * 100) + 10; // 10-110 seconds
       setTimeout(async () => {
-        if (recordingState === 'recording') {
+        if (recordingState === 'recording' && mediaStream && mediaStream.getVideoTracks().length > 0) {
           await captureSnapshot();
           setSnapshotTaken(true);
         }
@@ -204,7 +243,7 @@ export function CandidateRecordingPage() {
       
       // Capture final snapshot if not taken during recording
       let snapshotBlob: Blob | null = null;
-      if (!snapshotTaken) {
+      if (!snapshotTaken && mediaStream && mediaStream.getVideoTracks().length > 0) {
         snapshotBlob = await captureSnapshot();
       } else {
         snapshotBlob = await captureSnapshot(); // Take final snapshot anyway
@@ -399,6 +438,12 @@ export function CandidateRecordingPage() {
                     ref={canvasRef}
                     className="hidden"
                   />
+                  
+                  {!mediaStream?.getVideoTracks().length && (
+                    <div className="absolute inset-0 bg-gray-800 flex items-center justify-center text-white">
+                      <p>Audio-only mode - Camera unavailable</p>
+                    </div>
+                  )}
                   
                   {recordingState === 'recording' && (
                     <div className="absolute top-4 left-4 flex items-center space-x-2 bg-red-600 text-white px-3 py-1 rounded-full text-sm">
