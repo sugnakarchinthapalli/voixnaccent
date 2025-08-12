@@ -92,60 +92,40 @@ export function CandidateRecordingPage() {
       setError('');
       setRecordingState('preparing');
 
-      // MANDATORY: Request both video and audio - no fallback allowed
+      // Simple media request - let browser handle defaults
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user'
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100
-        }
+        video: true,
+        audio: true
       });
-
-      // Verify video track is active and working
-      const videoTracks = stream.getVideoTracks();
-      if (!videoTracks.length || !videoTracks[0].enabled) {
-        throw new Error('Video track not available or disabled');
-      }
 
       setMediaStream(stream);
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
         
-        // Wait for video to be ready and verify it's actually displaying
-        await new Promise((resolve, reject) => {
-          const checkVideo = () => {
-            if (videoRef.current && videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
-              resolve(true);
-            } else {
-              setTimeout(checkVideo, 100);
-            }
-          };
-          
-          setTimeout(() => reject(new Error('Video failed to initialize')), 5000);
-          checkVideo();
-        });
+        // Simple play with error handling
+        try {
+          await videoRef.current.play();
+        } catch (playError) {
+          console.warn('Video autoplay failed, but stream is ready:', playError);
+        }
       }
 
-      // Initialize MediaRecorder with audio only for recording
-      const audioStream = new MediaStream([stream.getAudioTracks()[0]]);
+      // Get audio track for recording
+      const audioTracks = stream.getAudioTracks();
+      if (!audioTracks.length) {
+        throw new Error('No audio track available');
+      }
       
-      let mimeType = 'audio/webm;codecs=opus';
+      const audioStream = new MediaStream([audioTracks[0]]);
+      
+      // Simple MIME type selection
+      let mimeType = 'audio/webm';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
-        if (MediaRecorder.isTypeSupported('audio/webm')) {
-          mimeType = 'audio/webm';
-        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        if (MediaRecorder.isTypeSupported('audio/mp4')) {
           mimeType = 'audio/mp4';
-        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
-          mimeType = 'audio/ogg';
         } else {
-          mimeType = '';
+          mimeType = ''; // Let browser choose
         }
       }
 
@@ -164,19 +144,21 @@ export function CandidateRecordingPage() {
       setMediaRecorder(recorder);
       setWebcamVerified(true);
       setRecordingState('idle');
+      
+      console.log('Camera and microphone access granted successfully');
 
     } catch (err) {
       console.error('Error accessing webcam:', err);
       
-      let errorMessage = 'Webcam access is mandatory for this assessment. ';
+      let errorMessage = 'Camera and microphone access is required for this assessment. ';
       
       if (err instanceof Error) {
         if (err.name === 'NotAllowedError') {
-          errorMessage += 'Please allow camera and microphone permissions and refresh the page.';
+          errorMessage += 'Please click "Allow" when prompted for camera and microphone permissions.';
         } else if (err.name === 'NotFoundError') {
-          errorMessage += 'No camera found. Please connect a webcam and try again.';
+          errorMessage += 'No camera or microphone found. Please connect these devices and try again.';
         } else if (err.name === 'NotReadableError') {
-          errorMessage += 'Camera is being used by another application. Please close other applications and try again.';
+          errorMessage += 'Camera or microphone is being used by another application. Please close other apps and try again.';
         } else {
           errorMessage += err.message;
         }
