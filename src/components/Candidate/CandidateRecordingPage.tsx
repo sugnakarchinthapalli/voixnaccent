@@ -93,16 +93,13 @@ export function CandidateRecordingPage() {
       console.log('Requesting webcam access...');
       
       const getUserMediaWithRetry = async (): Promise<MediaStream> => {
-        // Detect if we're on a mobile device
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
         const constraints = {
-          video: {
-            facingMode: isMobile ? 'user' : undefined, // Front camera on mobile
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: true
+          video: true, // Simple video constraint for snapshots only
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
         };
         
         console.log('Using media constraints:', constraints);
@@ -118,105 +115,13 @@ export function CandidateRecordingPage() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
 
-        setTimeout(() => {
-    const video = videoRef.current;
-    if (video) {
-      console.log('Video element state check:');
-      console.log('- srcObject exists:', !!video.srcObject);
-      console.log('- readyState:', video.readyState);
-      console.log('- videoWidth:', video.videoWidth);
-      console.log('- videoHeight:', video.videoHeight);
-      console.log('- paused:', video.paused);
-      
-      // Force play if not playing
-      if (video.paused) {
-        video.play().catch(console.warn);
-      }
-    }
-  }, 1000);
-
-        video.addEventListener('loadedmetadata', () => {
-    console.log('Video loaded:', video.videoWidth, 'x', video.videoHeight);
-    video.play().catch(err => {
-      console.warn('Autoplay failed:', err);
-      // Show click instruction to user
-    });
-  });
-        
-        // Enhanced video initialization for mobile compatibility
-        const initializeVideo = () => {
-          return new Promise<void>((resolve) => {
-            const video = videoRef.current;
-            if (!video) {
-              console.log('Video ref not available during initialization');
-              resolve();
-              return;
-            }
-
-            const handleLoadedMetadata = () => {
-              console.log('Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
-              console.log('Video readyState after metadata:', video.readyState);
-              console.log('Video currentTime:', video.currentTime);
-              console.log('Video duration:', video.duration);
-              
-              // Force a repaint on mobile to ensure video is visible
-              if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-                video.style.transform = 'translateZ(0)'; // Force hardware acceleration
-                video.style.webkitTransform = 'translateZ(0)';
-                console.log('Applied mobile-specific transforms');
-              }
-              
-              video.play()
-                .then(() => {
-                  console.log('Video playback started successfully');
-                  console.log('Video readyState after play:', video.readyState);
-                  console.log('Video paused state:', video.paused);
-                  console.log('Video current dimensions:', video.videoWidth, 'x', video.videoHeight);
-                  resolve();
-                })
-                .catch((playError) => {
-                  console.warn('Video autoplay failed, but stream is connected:', playError);
-                  console.log('Video readyState after play failure:', video.readyState);
-                  // On mobile, user interaction might be required for autoplay
-                  resolve();
-                });
-            };
-
-            // Add comprehensive event listeners for debugging
-            const events = ['loadstart', 'loadeddata', 'loadedmetadata', 'canplay', 'canplaythrough', 'playing', 'waiting', 'seeking', 'seeked'];
-            events.forEach(eventName => {
-              video.addEventListener(eventName, () => {
-                console.log(`Video event: ${eventName}, readyState: ${video.readyState}, dimensions: ${video.videoWidth}x${video.videoHeight}`);
-              }, { once: true });
-            });
-
-            console.log('Setting video srcObject...');
-            console.log('Video readyState before srcObject:', video.readyState);
-            
-            // Explicitly load the video after setting srcObject
-            
-            console.log('Video load() called');
-            console.log('Video readyState after load():', video.readyState);
-            if (video.readyState >= 1) {
-              console.log('Video already has metadata, calling handler immediately');
-              handleLoadedMetadata();
-            } else {
-              console.log('Waiting for loadedmetadata event...');
-              video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
-            }
-            
-            // Fallback timeout
-            setTimeout(() => {
-              console.log('Video initialization timeout after 5s, proceeding anyway');
-              console.log('Final video state - readyState:', video.readyState, 'dimensions:', video.videoWidth, 'x', video.videoHeight, 'paused:', video.paused);
-              resolve();
-            }, 5000);
+        // Simple video setup for background snapshots only
+        videoRef.current.addEventListener('loadedmetadata', () => {
+          console.log('Hidden video stream ready for snapshots');
+          videoRef.current?.play().catch(() => {
+            // Silent fail - video doesn't need to be visible
           });
-        };
-
-        console.log('Starting video initialization...');
-        await initializeVideo();
-        console.log('Video initialization completed');
+        });
       }
 
     } catch (err) {
@@ -226,43 +131,41 @@ export function CandidateRecordingPage() {
       if (err instanceof Error) {
         switch (err.name) {
           case 'NotAllowedError':
-            setError('Camera access denied. Please allow camera permissions and refresh the page.');
+            setError('Camera and microphone access denied. Please allow permissions and refresh the page.');
             break;
           case 'NotFoundError':
-            setError('No camera found. Please connect a camera and refresh the page.');
+            setError('No camera or microphone found. Please connect devices and refresh the page.');
             break;
           case 'OverconstrainedError':
-            setError('Camera constraints not supported. Trying with basic settings...');
+            setError('Device constraints not supported. Trying with basic settings...');
             // Retry with basic constraints
             setTimeout(() => {
               retryWithBasicConstraints();
             }, 2000);
             break;
           case 'NotReadableError':
-            setError(`Camera hardware error. Please try the following steps:
+            setError(`Device hardware error. Please try the following steps:
 
-1. Close ALL applications that might use the camera (Zoom, Teams, OBS, etc.)
+1. Close ALL applications that might use the camera/microphone (Zoom, Teams, OBS, etc.)
 2. Restart your browser completely
-3. Check your system privacy settings:
-   - Windows: Settings > Privacy > Camera
-   - Mac: System Settings > Privacy & Security > Camera
-4. Disable browser extensions that might interfere with camera access
-5. Update your camera drivers
+3. Check your system privacy settings for camera and microphone access
+4. Disable browser extensions that might interfere with media access
+5. Update your device drivers
 6. Try a different browser (Firefox, Edge, Safari)
 7. If the issue persists, restart your computer
 
-This error often indicates a system-level conflict or driver issue.`);
+This error often indicates a system-level conflict.`);
             break;
           default:
-            setError(`Camera access failed: ${err.message}
+            setError(`Media access failed: ${err.message}
 
 Please try:
 1. Refreshing the page
 2. Restarting your browser
-3. Checking camera permissions in browser settings`);
+3. Checking camera and microphone permissions in browser settings`);
         }
       } else {
-        setError('Failed to access camera. Please check your camera settings and try again.');
+        setError('Failed to access camera and microphone. Please check your device settings and try again.');
       }
     }
   };
@@ -315,82 +218,41 @@ Please try:
       setError('');
       
       console.log('Starting recording process...');
-      console.log('Available media stream tracks:', mediaStream.getTracks().map(track => ({
-        kind: track.kind,
-        enabled: track.enabled,
-        readyState: track.readyState,
-        label: track.label
-      })));
       
-      // Test MediaRecorder support first
-      if (!window.MediaRecorder) {
-        throw new Error('MediaRecorder is not supported in this browser');
-      }
-      
-      // Comprehensive MIME type testing
+      // Simple MIME type selection for audio recording
       const mimeTypes = [
         'audio/webm;codecs=opus',
-        'audio/webm;codecs=vp8,opus',
         'audio/webm',
-        'audio/ogg;codecs=opus',
-        'audio/ogg',
-        'audio/mp4;codecs=mp4a.40.2',
         'audio/mp4',
-        'audio/mpeg',
-        'audio/wav',
-        '' // Let browser choose
+        'audio/wav'
       ];
       
       let selectedMimeType = '';
       for (const mimeType of mimeTypes) {
-        console.log(`Testing MIME type: "${mimeType}" - Supported: ${MediaRecorder.isTypeSupported(mimeType)}`);
-        if (mimeType === '' || MediaRecorder.isTypeSupported(mimeType)) {
+        if (MediaRecorder.isTypeSupported(mimeType)) {
           selectedMimeType = mimeType;
+          console.log('Using MIME type:', selectedMimeType);
           break;
         }
       }
       
-      console.log(`Selected MIME type: "${selectedMimeType}"`);
-
-      // Prepare MediaRecorder options
-      const options = selectedMimeType ? { mimeType: selectedMimeType } : {};
-      console.log('MediaRecorder options:', options);
-      
-      // Create MediaRecorder with error handling
-      let recorder;
-      try {
-        recorder = new MediaRecorder(mediaStream, options);
-        console.log('MediaRecorder created successfully');
-      } catch (recorderError) {
-        console.error('Failed to create MediaRecorder:', recorderError);
-        
-        // Try without any options as fallback
-        if (selectedMimeType) {
-          console.log('Retrying MediaRecorder creation without MIME type...');
-          try {
-            recorder = new MediaRecorder(mediaStream);
-            selectedMimeType = '';
-            console.log('MediaRecorder created successfully without MIME type');
-          } catch (fallbackError) {
-            console.error('MediaRecorder creation failed even without options:', fallbackError);
-            throw new Error(`MediaRecorder not supported: ${fallbackError.message}`);
-          }
-        } else {
-          throw new Error(`MediaRecorder creation failed: ${recorderError.message}`);
-        }
+      if (!selectedMimeType) {
+        console.log('No supported MIME type found, using browser default');
       }
+
+      const options = selectedMimeType ? { mimeType: selectedMimeType } : {};
+      
+      const recorder = new MediaRecorder(mediaStream, options);
       
       const chunks: Blob[] = [];
       
       recorder.ondataavailable = (event) => {
-        console.log('Data available event:', event.data.size, 'bytes');
         if (event.data.size > 0) {
           chunks.push(event.data);
         }
       };
       
       recorder.onstop = () => {
-        console.log('Recording stopped, chunks:', chunks.length);
         setAudioChunks(chunks);
         
         // Create audio URL for review
@@ -398,7 +260,7 @@ Please try:
           const audioBlob = new Blob(chunks, { type: selectedMimeType || 'audio/webm' });
           const audioUrl = URL.createObjectURL(audioBlob);
           setRecordedAudioUrl(audioUrl);
-          console.log('Audio URL created for review, blob size:', audioBlob.size, 'bytes');
+          console.log('Audio recording completed');
         }
       };
       
@@ -407,12 +269,11 @@ Please try:
         setError('Recording error occurred. Please try again.');
       };
       
-      recorder.start(1000); // Collect data every second
+      recorder.start(1000);
       setMediaRecorder(recorder);
       setRecordingState('recording');
       
-      console.log('Recording started with MIME type:', selectedMimeType || 'browser default');
-      console.log('MediaRecorder state:', recorder.state);
+      console.log('Audio recording started');
       
     } catch (err) {
       console.error('Error starting recording:', err);
@@ -623,14 +484,14 @@ Please try:
             {/* Webcam Section */}
             <div className="bg-white rounded-lg shadow-sm border p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Camera className="h-5 w-5 mr-2" />
+                <Mic className="h-5 w-5 mr-2" />
                 Identity Verification
               </h2>
               
               {cameraState === 'requesting' && (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Setting up your assessment...</p>
+                  <p className="text-gray-600">Setting up audio recording...</p>
                   <p className="text-sm text-gray-500 mt-2">Please allow camera and microphone access</p>
                 </div>
               )}
@@ -647,46 +508,54 @@ Please try:
               
               {cameraState === 'granted' && (
                 <div className="space-y-4">
-                  <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      onClick={() => {
-                        if (videoRef.current?.paused) {
-                          videoRef.current.play().catch(console.warn);
-                        }
-                      }}
-                      className="w-full h-full object-cover cursor-pointer"
-                      style={{
-                        transform: 'scaleX(-1)', // Mirror the video for better UX
-                        WebkitTransform: 'scaleX(-1)'
-                      }}
-                    />
+                  {/* Hidden video element for snapshots only */}
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="hidden"
+                  />
+                  
+                  <canvas ref={canvasRef} className="hidden" />
+                  
+                  {/* Audio Recording Status Display */}
+                  <div className="relative bg-gradient-to-br from-blue-50 to-teal-50 rounded-lg p-8 text-center">
+                    <div className="mb-4">
+                      <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${
+                        recordingState === 'recording' 
+                          ? 'bg-red-500 animate-pulse' 
+                          : recordingState === 'stopped'
+                          ? 'bg-green-500'
+                          : 'bg-blue-500'
+                      }`}>
+                        <Mic className="h-8 w-8 text-white" />
+                      </div>
+                    </div>
+                    
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      {recordingState === 'idle' && 'Ready to Record'}
+                      {recordingState === 'recording' && 'Recording in Progress'}
+                      {recordingState === 'stopped' && 'Recording Complete'}
+                      {recordingState === 'uploading' && 'Submitting Assessment'}
+                    </h3>
+                    
+                    <p className="text-gray-600 mb-4">
+                      {recordingState === 'idle' && 'Click "Start Recording" to begin your voice assessment'}
+                      {recordingState === 'recording' && 'Speak clearly into your microphone. Identity verification snapshots will be captured automatically.'}
+                      {recordingState === 'stopped' && 'Recording saved successfully. You can review your audio below.'}
+                      {recordingState === 'uploading' && 'Please wait while we process your assessment...'}
+                    </p>
+                    
                     {snapshotTaken && (
-                      <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs">
-                        ✓ Verified
-                      </div>
-                    )}
-                    {recordingState === 'recording' && (
-                      <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center">
-                        <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
-                        Recording
-                      </div>
-                    )}
-                    {cameraState === 'granted' && !videoRef.current?.videoWidth && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-gray-800 text-white text-sm">
-                        <div className="text-center">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto mb-2"></div>
-                          <p>Initializing camera...</p>
-                          <p className="text-xs mt-1 opacity-75">Check browser console for details</p>
-                        </div>
+                      <div className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800">
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Identity Verified
                       </div>
                     )}
                   </div>
                   
-                  <canvas ref={canvasRef} className="hidden" />
+                  {/* Old video display code removed */}
                   
                   {/* Recording Controls */}
                   <div className="flex justify-center space-x-4">
@@ -694,6 +563,7 @@ Please try:
                       <Button
                         onClick={handleStartRecording}
                         className="flex items-center space-x-2"
+                        size="lg"
                       >
                         <Mic className="h-4 w-4" />
                         <span>Start Recording</span>
@@ -705,19 +575,11 @@ Please try:
                         onClick={handleStopRecording}
                         variant="danger"
                         className="flex items-center space-x-2"
+                        size="lg"
                       >
                         <Square className="h-4 w-4" />
                         <span>Stop Recording</span>
                       </Button>
-                    )}
-                    
-                    {recordingState === 'stopped' && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center text-green-600 mb-2">
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          <span className="text-sm">Recording completed</span>
-                        </div>
-                      </div>
                     )}
                   </div>
                   
@@ -825,7 +687,7 @@ Please try:
               </Button>
               
               <div className="mt-4 text-xs text-gray-500 space-y-1">
-                <p>✓ Webcam verification required</p>
+                <p>✓ Identity verification (automatic snapshots)</p>
                 <p>✓ Audio recording required</p>
                 <p>✓ All fields must be completed</p>
               </div>
