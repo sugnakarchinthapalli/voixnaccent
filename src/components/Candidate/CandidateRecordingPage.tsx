@@ -87,11 +87,7 @@ export function CandidateRecordingPage() {
       setRecordingState('preparing');
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user'
-        },
+        video: true,
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
@@ -103,6 +99,7 @@ export function CandidateRecordingPage() {
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(console.error);
       }
 
       // Initialize MediaRecorder with only audio track
@@ -126,7 +123,7 @@ export function CandidateRecordingPage() {
 
     } catch (err) {
       console.error('Error accessing media devices:', err);
-      setError('Unable to access camera and microphone. Please ensure you have granted permissions and try again.');
+      setError(`Unable to access camera and microphone: ${err instanceof Error ? err.message : 'Unknown error'}. Please ensure you have granted permissions and try again.`);
       setRecordingState('error');
     }
   };
@@ -212,6 +209,9 @@ export function CandidateRecordingPage() {
       } else {
         snapshotBlob = await captureSnapshot(); // Take final snapshot anyway
       }
+
+      // Ensure bucket exists before uploading
+      await storageService.ensureBucketExists();
 
       // Upload audio file
       const audioFile = new File([audioBlob], `recording-${Date.now()}.webm`, {
@@ -392,7 +392,8 @@ export function CandidateRecordingPage() {
                     autoPlay
                     muted
                     playsInline
-                    className="w-full max-w-md mx-auto rounded-lg shadow-md bg-gray-900"
+                    className="w-full max-w-md mx-auto rounded-lg shadow-md bg-gray-900 object-cover"
+                    style={{ aspectRatio: '16/9' }}
                   />
                   <canvas
                     ref={canvasRef}
