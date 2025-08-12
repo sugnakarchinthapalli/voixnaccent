@@ -93,10 +93,20 @@ export function CandidateRecordingPage() {
       console.log('Requesting webcam access...');
       
       const getUserMediaWithRetry = async (): Promise<MediaStream> => {
-        return await navigator.mediaDevices.getUserMedia({
-          video: true,
+        // Detect if we're on a mobile device
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        const constraints = {
+          video: {
+            facingMode: isMobile ? 'user' : undefined, // Front camera on mobile
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
           audio: true
-        });
+        };
+        
+        console.log('Using media constraints:', constraints);
+        return await navigator.mediaDevices.getUserMedia(constraints);
       };
 
       const stream = await retryWithBackoff(getUserMediaWithRetry);
@@ -108,18 +118,24 @@ export function CandidateRecordingPage() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         
-        // Wait for video metadata to load before attempting to play
-        const playVideo = () => {
-          return new Promise<void>((resolve, reject) => {
-            if (!videoRef.current) {
-              reject(new Error('Video element not available'));
+        // Enhanced video initialization for mobile compatibility
+        const initializeVideo = () => {
+          return new Promise<void>((resolve) => {
+            const video = videoRef.current;
+            if (!video) {
+              resolve();
               return;
             }
 
-            const video = videoRef.current;
-            
-            const onLoadedMetadata = () => {
-              video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            const handleLoadedMetadata = () => {
+              console.log('Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
+              
+              // Force a repaint on mobile to ensure video is visible
+              if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                video.style.transform = 'translateZ(0)'; // Force hardware acceleration
+                video.style.webkitTransform = 'translateZ(0)';
+              }
+              
               video.play()
                 .then(() => {
                   console.log('Video playback started successfully');
@@ -127,25 +143,26 @@ export function CandidateRecordingPage() {
                 })
                 .catch((playError) => {
                   console.warn('Video autoplay failed, but stream is connected:', playError);
-                  resolve(); // Don't fail the entire process for autoplay issues
+                  // On mobile, user interaction might be required for autoplay
+                  resolve();
                 });
             };
 
             if (video.readyState >= 1) {
-              // Metadata already loaded
-              onLoadedMetadata();
+              handleLoadedMetadata();
             } else {
-              video.addEventListener('loadedmetadata', onLoadedMetadata);
+              video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
             }
+            
+            // Fallback timeout
+            setTimeout(() => {
+              console.log('Video initialization timeout, proceeding anyway');
+              resolve();
+            }, 5000);
           });
         };
 
-        try {
-          await playVideo();
-        } catch (playError) {
-          console.warn('Video setup warning:', playError);
-          // Don't fail the entire webcam access for video play issues
-        }
+        await initializeVideo();
       }
 
     } catch (err) {
@@ -159,6 +176,13 @@ export function CandidateRecordingPage() {
             break;
           case 'NotFoundError':
             setError('No camera found. Please connect a camera and refresh the page.');
+            break;
+          case 'OverconstrainedError':
+            setError('Camera constraints not supported. Trying with basic settings...');
+            // Retry with basic constraints
+            setTimeout(() => {
+              retryWithBasicConstraints();
+            }, 2000);
             break;
           case 'NotReadableError':
             setError(`Camera hardware error. Please try the following steps:
@@ -175,9 +199,6 @@ export function CandidateRecordingPage() {
 
 This error often indicates a system-level conflict or driver issue.`);
             break;
-          case 'OverconstrainedError':
-            setError('Camera constraints not supported. Please try with a different camera.');
-            break;
           default:
             setError(`Camera access failed: ${err.message}
 
@@ -192,6 +213,29 @@ Please try:
     }
   };
 
+  const retryWithBasicConstraints = async () => {
+    try {
+      console.log('Retrying with basic camera constraints...');
+      
+      const basicStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
+      
+      setMediaStream(basicStream);
+      setCameraState('granted');
+      setError('');
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = basicStream;
+        console.log('Basic camera constraints successful');
+      }
+      
+    } catch (error) {
+      console.error('Basic constraints also failed:', error);
+      setError('Camera access failed even with basic settings. Please check your camera and try again.');
+    }
+  };
   const handleStartRecording = async () => {
     if (!mediaStream) {
       setError('No media stream available');
@@ -483,6 +527,10 @@ Please try:
                       muted
                       playsInline
                       className="w-full h-full object-cover"
+                      style={{
+                        transform: 'scaleX(-1)', // Mirror the video for better UX
+                        WebkitTransform: 'scaleX(-1)'
+                      }}
                     />
                     {snapshotTaken && (
                       <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs">
@@ -493,6 +541,14 @@ Please try:
                       <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center">
                         <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
                         Recording
+                      </div>
+                    )}
+                    {cameraState === 'granted' && !videoRef.current?.videoWidth && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-800 text-white text-sm">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto mb-2"></div>
+                          <p>Initializing camera...</p>
+                        </div>
                       </div>
                     )}
                   </div>
