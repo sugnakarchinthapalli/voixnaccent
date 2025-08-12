@@ -117,6 +117,23 @@ export function CandidateRecordingPage() {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+
+        setTimeout(() => {
+    const video = videoRef.current;
+    if (video) {
+      console.log('Video element state check:');
+      console.log('- srcObject exists:', !!video.srcObject);
+      console.log('- readyState:', video.readyState);
+      console.log('- videoWidth:', video.videoWidth);
+      console.log('- videoHeight:', video.videoHeight);
+      console.log('- paused:', video.paused);
+      
+      // Force play if not playing
+      if (video.paused) {
+        video.play().catch(console.warn);
+      }
+    }
+  }, 1000);
         
         // Enhanced video initialization for mobile compatibility
         const initializeVideo = () => {
