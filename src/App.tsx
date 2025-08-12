@@ -9,10 +9,10 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Public route for candidate assessment */}
+        {/* Public route for candidate assessment - NO AuthWrapper */}
         <Route path="/candidate-assessment" element={<CandidateRecordingPage />} />
         
-        {/* Protected routes for internal users */}
+        {/* Protected routes for internal users - WITH AuthWrapper */}
         <Route path="/*" element={
           <AuthWrapper>
             <div className="min-h-screen bg-gray-50">
