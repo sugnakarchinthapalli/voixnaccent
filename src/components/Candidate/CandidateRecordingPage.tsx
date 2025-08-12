@@ -246,10 +246,24 @@ Please try:
     try {
       console.log('Retrying with basic camera constraints...');
       
+      // Stop existing stream if any
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+      }
+      
       const basicStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true
       });
+      
+      // Validate basic stream
+      const videoTracks = basicStream.getVideoTracks();
+      const audioTracks = basicStream.getAudioTracks();
+      
+      if (videoTracks.length === 0 || audioTracks.length === 0) {
+        basicStream.getTracks().forEach(track => track.stop());
+        throw new Error('Basic constraints also failed to provide required tracks');
+      }
       
       setMediaStream(basicStream);
       setCameraState('granted');
@@ -262,7 +276,8 @@ Please try:
       
     } catch (error) {
       console.error('Basic constraints also failed:', error);
-      setError('Camera access failed even with basic settings. Please check your camera and try again.');
+      setError('Camera/microphone access failed with all settings. Please check your devices and browser permissions.');
+      setCameraState('error');
     }
   };
   const handleStartRecording = async () => {
