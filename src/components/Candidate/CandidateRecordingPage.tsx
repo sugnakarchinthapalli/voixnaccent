@@ -654,11 +654,11 @@ Please try:
                       muted
                       playsInline
                       onClick={() => {
-    if (videoRef.current?.paused) {
-      videoRef.current.play().catch(console.warn);
-    }
-  }}
-                      className="w-full h-full object-cover"
+                        if (videoRef.current?.paused) {
+                          videoRef.current.play().catch(console.warn);
+                        }
+                      }}
+                      className="w-full h-full object-cover cursor-pointer"
                       style={{
                         transform: 'scaleX(-1)', // Mirror the video for better UX
                         WebkitTransform: 'scaleX(-1)'
