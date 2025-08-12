@@ -459,6 +459,13 @@ export function BasicVideoRecorder() {
                     {snapshots.length} snapshot{snapshots.length > 1 ? 's' : ''} ready for upload
                   </p>
                 )}
+                
+                {/* Debug info - remove in production */}
+                <div className="mt-4 p-2 bg-gray-100 rounded text-xs text-gray-600">
+                  <p>Debug: Recording: {isRecording ? 'Yes' : 'No'}</p>
+                  <p>Debug: Snapshots: {snapshots.length}</p>
+                  <p>Debug: Camera Ready: {cameraReady ? 'Yes' : 'No'}</p>
+                </div>
               </div>
             </div>
           </div>
