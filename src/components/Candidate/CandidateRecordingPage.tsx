@@ -54,6 +54,31 @@ export function CandidateRecordingPage() {
     }
   };
 
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const retryWithBackoff = async (fn: () => Promise<MediaStream>, maxRetries: number = 3): Promise<MediaStream> => {
+    let lastError: Error;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error as Error;
+        
+        // Only retry for NotReadableError
+        if (error instanceof Error && error.name === 'NotReadableError' && attempt < maxRetries - 1) {
+          console.log(`Webcam access attempt ${attempt + 1} failed, retrying in ${(attempt + 1) * 1000}ms...`);
+          await sleep((attempt + 1) * 1000); // 1s, 2s, 3s delays
+          continue;
+        }
+        
+        throw error;
+      }
+    }
+    
+    throw lastError!;
+  };
+
   const requestWebcamAccess = async () => {
     try {
       setCameraState('requesting');
@@ -66,10 +91,15 @@ export function CandidateRecordingPage() {
       }
 
       console.log('Requesting webcam access...');
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
+      
+      const getUserMediaWithRetry = async (): Promise<MediaStream> => {
+        return await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+      };
+
+      const stream = await retryWithBackoff(getUserMediaWithRetry);
 
       console.log('Webcam access granted');
       setMediaStream(stream);
@@ -77,13 +107,44 @@ export function CandidateRecordingPage() {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        // Ensure video plays on all browsers
+        
+        // Wait for video metadata to load before attempting to play
+        const playVideo = () => {
+          return new Promise<void>((resolve, reject) => {
+            if (!videoRef.current) {
+              reject(new Error('Video element not available'));
+              return;
+            }
+
+            const video = videoRef.current;
+            
+            const onLoadedMetadata = () => {
+              video.removeEventListener('loadedmetadata', onLoadedMetadata);
+              video.play()
+                .then(() => {
+                  console.log('Video playback started successfully');
+                  resolve();
+                })
+                .catch((playError) => {
+                  console.warn('Video autoplay failed, but stream is connected:', playError);
+                  resolve(); // Don't fail the entire process for autoplay issues
+                });
+            };
+
+            if (video.readyState >= 1) {
+              // Metadata already loaded
+              onLoadedMetadata();
+            } else {
+              video.addEventListener('loadedmetadata', onLoadedMetadata);
+            }
+          });
+        };
+
         try {
-          await videoRef.current.play();
-          console.log('Video playback started successfully');
+          await playVideo();
         } catch (playError) {
-          console.warn('Video autoplay failed, but stream is connected:', playError);
-          // This is often not critical - user can manually play
+          console.warn('Video setup warning:', playError);
+          // Don't fail the entire webcam access for video play issues
         }
       }
 
@@ -100,13 +161,30 @@ export function CandidateRecordingPage() {
             setError('No camera found. Please connect a camera and refresh the page.');
             break;
           case 'NotReadableError':
-            setError('Camera is being used by another application or there\'s a hardware issue. Please:\n1. Close all other applications using the camera\n2. Restart your browser\n3. If the issue persists, restart your computer');
+            setError(`Camera hardware error. Please try the following steps:
+
+1. Close ALL applications that might use the camera (Zoom, Teams, OBS, etc.)
+2. Restart your browser completely
+3. Check your system privacy settings:
+   - Windows: Settings > Privacy > Camera
+   - Mac: System Settings > Privacy & Security > Camera
+4. Disable browser extensions that might interfere with camera access
+5. Update your camera drivers
+6. Try a different browser (Firefox, Edge, Safari)
+7. If the issue persists, restart your computer
+
+This error often indicates a system-level conflict or driver issue.`);
             break;
           case 'OverconstrainedError':
             setError('Camera constraints not supported. Please try with a different camera.');
             break;
           default:
-            setError(`Camera access failed: ${err.message}`);
+            setError(`Camera access failed: ${err.message}
+
+Please try:
+1. Refreshing the page
+2. Restarting your browser
+3. Checking camera permissions in browser settings`);
         }
       } else {
         setError('Failed to access camera. Please check your camera settings and try again.');
@@ -389,7 +467,7 @@ export function CandidateRecordingPage() {
               {cameraState === 'error' && (
                 <div className="text-center py-8">
                   <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-                  <p className="text-red-600 mb-4 whitespace-pre-line">{error}</p>
+                  <p className="text-red-600 mb-4 whitespace-pre-line text-sm">{error}</p>
                   <Button onClick={retryWebcamAccess} variant="outline">
                     Try Again
                   </Button>
