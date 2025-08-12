@@ -505,7 +505,6 @@ export function CandidateRecordingPage() {
                 <li>• Look directly at the camera and speak clearly</li>
                 <li>• You have a maximum of 2 minutes to respond</li>
                 <li>• Your camera will remain on for identity verification</li>
-                <li>• Only your audio will be processed for assessment</li>
               </ul>
             </div>
           </div>
