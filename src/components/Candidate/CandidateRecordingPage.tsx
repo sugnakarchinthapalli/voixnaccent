@@ -548,6 +548,7 @@ Please try:
                         <div className="text-center">
                           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto mb-2"></div>
                           <p>Initializing camera...</p>
+                          <p className="text-xs mt-1 opacity-75">Check browser console for details</p>
                         </div>
                       </div>
                     )}
