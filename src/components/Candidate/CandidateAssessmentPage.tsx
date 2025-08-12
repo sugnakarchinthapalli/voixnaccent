@@ -198,8 +198,27 @@ export function CandidateAssessmentPage() {
         });
       }, 1000);
       
-      // Schedule exactly 2 snapshots
-      scheduleSnapshots();
+      // Take first snapshot immediately (within 1-3 seconds)
+      const firstSnapshotDelay = Math.random() * 2000 + 1000; // 1-3 seconds
+      console.log(`First snapshot scheduled in ${Math.round(firstSnapshotDelay/1000)} seconds`);
+      
+      firstSnapshotTimerRef.current = setTimeout(() => {
+        if (isRecording) {
+          console.log('Taking first snapshot...');
+          takeSnapshot('first');
+        }
+      }, firstSnapshotDelay);
+      
+      // Schedule second snapshot between 20-30 seconds
+      const secondSnapshotDelay = Math.random() * 10000 + 20000; // 20-30 seconds
+      console.log(`Second snapshot scheduled in ${Math.round(secondSnapshotDelay/1000)} seconds`);
+      
+      secondSnapshotTimerRef.current = setTimeout(() => {
+        if (isRecording) {
+          console.log('Taking second snapshot...');
+          takeSnapshot('second');
+        }
+      }, secondSnapshotDelay);
       
       console.log('Recording started successfully');
       setError('');
@@ -233,45 +252,24 @@ export function CandidateAssessmentPage() {
     }
   };
 
-  const scheduleSnapshots = () => {
-    console.log('Scheduling snapshots...');
-    
-    // First snapshot: 3-8 seconds after start
-    const firstSnapshotDelay = Math.random() * 5000 + 3000; // 3-8 seconds
-    console.log(`First snapshot scheduled in ${Math.round(firstSnapshotDelay/1000)} seconds`);
-    
-    firstSnapshotTimerRef.current = setTimeout(() => {
-      if (isRecording) {
-        console.log('Taking first snapshot...');
-        takeSnapshot('first');
-      }
-    }, firstSnapshotDelay);
-    
-    // Second snapshot: randomly between 30-90 seconds
-    const secondSnapshotDelay = Math.random() * 60000 + 30000; // 30-90 seconds
-    console.log(`Second snapshot scheduled in ${Math.round(secondSnapshotDelay/1000)} seconds`);
-    
-    secondSnapshotTimerRef.current = setTimeout(() => {
-      if (isRecording) {
-        console.log('Taking second snapshot...');
-        takeSnapshot('second');
-      }
-    }, secondSnapshotDelay);
-  };
-
   const takeSnapshot = (snapshotType: 'first' | 'second') => {
     console.log(`Attempting to take ${snapshotType} snapshot...`);
+    console.log('Current recording state:', isRecording);
+    console.log('Video element:', videoRef.current);
+    console.log('Canvas element:', canvasRef.current);
     
     if (!videoRef.current || !canvasRef.current) {
       console.error('Video or canvas ref not available');
       return;
     }
     
-    if (!isRecording) {
-      console.error('Not recording, skipping snapshot');
-      return;
-    }
-    
+    const video = videoRef.current;
+    console.log('Video dimensions:', {
+      videoWidth: video.videoWidth,
+      videoHeight: video.videoHeight,
+      readyState: video.readyState
+    });
+
     if (!videoRef.current.videoWidth || !videoRef.current.videoHeight) {
       console.error('Video dimensions not available:', {
         width: videoRef.current.videoWidth,
@@ -281,7 +279,6 @@ export function CandidateAssessmentPage() {
     }
     
     try {
-      const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       
@@ -311,6 +308,7 @@ export function CandidateAssessmentPage() {
           setSnapshots(prev => {
             const updated = [...prev, snapshot];
             console.log(`${snapshotType} snapshot captured successfully. Total snapshots: ${updated.length}`);
+            console.log('Snapshot blob size:', blob.size, 'bytes');
             return updated;
           });
         } else {
@@ -470,197 +468,199 @@ export function CandidateAssessmentPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column - Question and Form */}
-          <div className="space-y-6">
-            {/* Assessment Question */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Assessment Question</h2>
-              
-              {loadingQuestion ? (
-                <div className="animate-pulse">
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                </div>
-              ) : question ? (
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <p className="text-gray-700 leading-relaxed">{question.text}</p>
-                  <div className="mt-3 flex items-center text-xs text-blue-600">
-                    <Clock className="h-3 w-3 mr-1" />
-                    <span>Maximum 2 minutes to answer</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-gray-500">Failed to load question</p>
-                  <Button onClick={fetchRandomQuestion} variant="outline" size="sm" className="mt-2">
-                    Retry
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Candidate Information */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <User className="h-5 w-5 mr-2" />
-                Your Information
-              </h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={candidateName}
-                    onChange={(e) => setCandidateName(e.target.value)}
-                    placeholder="Enter your full name"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={isRecording || submitting}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    value={candidateEmail}
-                    onChange={(e) => setCandidateEmail(e.target.value)}
-                    placeholder="your.email@example.com"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={isRecording || submitting}
-                  />
+        <div className="space-y-8">
+          {/* Assessment Question */}
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Assessment Question</h2>
+            
+            {loadingQuestion ? (
+              <div className="animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            ) : question ? (
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-gray-700 leading-relaxed">{question.text}</p>
+                <div className="mt-3 flex items-center text-xs text-blue-600">
+                  <Clock className="h-3 w-3 mr-1" />
+                  <span>Maximum 2 minutes to answer</span>
                 </div>
               </div>
-            </div>
-
-            {/* Identity Verification Notice */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="flex items-start">
-                <Camera className="h-5 w-5 text-yellow-600 mr-2 mt-0.5" />
-                <div>
-                  <h3 className="font-medium text-yellow-800">Identity Verification</h3>
-                  <p className="text-sm text-yellow-700 mt-1">
-                    For security purposes, snapshots will be automatically captured during your recording for identity verification. 
-                    These are used only for assessment purposes.
-                  </p>
-                  <div className="flex items-center space-x-2 mt-2">
-                    <div className={`w-3 h-3 rounded-full ${snapshots.length >= 1 ? 'bg-green-500' : 'bg-gray-300'}`} />
-                    <div className={`w-3 h-3 rounded-full ${snapshots.length >= 2 ? 'bg-green-500' : 'bg-gray-300'}`} />
-                    <span className="text-xs text-yellow-600">
-                      {snapshots.length}/2 verification snapshots captured
-                    </span>
-                  </div>
-                </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-gray-500">Failed to load question</p>
+                <Button onClick={fetchRandomQuestion} variant="outline" size="sm" className="mt-2">
+                  Retry
+                </Button>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Right Column - Video and Recording */}
-          <div className="space-y-6">
-            {/* Video Feed */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Camera className="h-5 w-5 mr-2" />
-                Video Feed
-              </h2>
-              
-              <div className="relative bg-gray-900 rounded-lg overflow-hidden">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-auto"
-                  style={{ maxHeight: '300px' }}
-                />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left Column - Video and Recording */}
+            <div className="space-y-6">
+              {/* Video Feed */}
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Camera className="h-5 w-5 mr-2" />
+                  Video Feed
+                </h2>
                 
-                {!cameraReady && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
-                    <div className="text-center text-white">
-                      <Camera className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Initializing camera...</p>
+                <div className="relative bg-gray-900 rounded-lg overflow-hidden">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full h-auto"
+                    style={{ maxHeight: '300px' }}
+                  />
+                  
+                  {!cameraReady && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
+                      <div className="text-center text-white">
+                        <Camera className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Initializing camera...</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Hidden canvas for snapshots */}
+                <canvas ref={canvasRef} className="hidden" />
+              </div>
+
+              {/* Recording Controls */}
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Mic className="h-5 w-5 mr-2" />
+                  Record Your Answer
+                </h2>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-300'}`} />
+                      <span className="font-medium">
+                        {isRecording ? 'Recording...' : audioBlob ? 'Recording Complete' : 'Ready to record'}
+                      </span>
+                    </div>
+                    
+                    <div className="font-mono text-lg font-semibold">
+                      {formatTime(recordingTime)} / {formatTime(MAX_RECORDING_TIME)}
                     </div>
                   </div>
-                )}
+                  
+                  <div className="flex space-x-3">
+                    <Button
+                      onClick={startRecording}
+                      disabled={!cameraReady || isRecording || !question || submitting}
+                      className="flex items-center space-x-2"
+                    >
+                      <Mic className="h-4 w-4" />
+                      <span>Start Recording</span>
+                    </Button>
+                    
+                    <Button
+                      onClick={stopRecording}
+                      disabled={!isRecording}
+                      variant="danger"
+                      className="flex items-center space-x-2"
+                    >
+                      <Square className="h-4 w-4" />
+                      <span>Stop Recording</span>
+                    </Button>
+                  </div>
+
+                  {/* Audio Playback */}
+                  {audioBlob && (
+                    <div className="pt-4 border-t">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Review Your Recording
+                      </label>
+                      <audio controls className="w-full">
+                        <source src={URL.createObjectURL(audioBlob)} type={audioBlob.type} />
+                        Your browser does not support the audio element.
+                      </audio>
+                    </div>
+                  )}
+                </div>
               </div>
-              
-              {/* Hidden canvas for snapshots */}
-              <canvas ref={canvasRef} className="hidden" />
             </div>
 
-            {/* Recording Controls */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Mic className="h-5 w-5 mr-2" />
-                Record Your Answer
-              </h2>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-300'}`} />
-                    <span className="font-medium">
-                      {isRecording ? 'Recording...' : audioBlob ? 'Recording Complete' : 'Ready to record'}
-                    </span>
-                  </div>
-                  
-                  <div className="font-mono text-lg font-semibold">
-                    {formatTime(recordingTime)} / {formatTime(MAX_RECORDING_TIME)}
-                  </div>
-                </div>
+            {/* Right Column - Form and Identity Verification */}
+            <div className="space-y-6">
+              {/* Candidate Information */}
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <User className="h-5 w-5 mr-2" />
+                  Your Information
+                </h2>
                 
-                <div className="flex space-x-3">
-                  <Button
-                    onClick={startRecording}
-                    disabled={!cameraReady || isRecording || !question || submitting}
-                    className="flex items-center space-x-2"
-                  >
-                    <Mic className="h-4 w-4" />
-                    <span>Start Recording</span>
-                  </Button>
-                  
-                  <Button
-                    onClick={stopRecording}
-                    disabled={!isRecording}
-                    variant="danger"
-                    className="flex items-center space-x-2"
-                  >
-                    <Square className="h-4 w-4" />
-                    <span>Stop Recording</span>
-                  </Button>
-                </div>
-
-                {/* Audio Playback */}
-                {audioBlob && (
-                  <div className="pt-4 border-t">
+                <div className="space-y-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Review Your Recording
+                      Full Name *
                     </label>
-                    <audio controls className="w-full">
-                      <source src={URL.createObjectURL(audioBlob)} type={audioBlob.type} />
-                      Your browser does not support the audio element.
-                    </audio>
+                    <input
+                      type="text"
+                      value={candidateName}
+                      onChange={(e) => setCandidateName(e.target.value)}
+                      placeholder="Enter your full name"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={submitting}
+                    />
                   </div>
-                )}
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      value={candidateEmail}
+                      onChange={(e) => setCandidateEmail(e.target.value)}
+                      placeholder="your.email@example.com"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={submitting}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Submit Button */}
-            <Button
-              onClick={handleSubmitAssessment}
-              disabled={!audioBlob || !candidateName.trim() || !candidateEmail.trim() || submitting || snapshots.length < 2}
-              loading={submitting}
-              className="w-full flex items-center justify-center space-x-2"
-              size="lg"
-            >
-              <Send className="h-5 w-5" />
-              <span>{submitting ? 'Submitting Assessment...' : 'Submit Assessment'}</span>
-            </Button>
+              {/* Identity Verification Notice */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <Camera className="h-5 w-5 text-yellow-600 mr-2 mt-0.5" />
+                  <div>
+                    <h3 className="font-medium text-yellow-800">Identity Verification</h3>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      For security purposes, snapshots will be automatically captured during your recording for identity verification. 
+                      These are used only for assessment purposes.
+                    </p>
+                    <div className="flex items-center space-x-2 mt-2">
+                      <div className={`w-3 h-3 rounded-full ${snapshots.length >= 1 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <div className={`w-3 h-3 rounded-full ${snapshots.length >= 2 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <span className="text-xs text-yellow-600">
+                        {snapshots.length}/2 verification snapshots captured
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <Button
+                onClick={handleSubmitAssessment}
+                disabled={!audioBlob || !candidateName.trim() || !candidateEmail.trim() || submitting}
+                loading={submitting}
+                className="w-full flex items-center justify-center space-x-2"
+                size="lg"
+              >
+                <Send className="h-5 w-5" />
+                <span>{submitting ? 'Submitting Assessment...' : 'Submit Assessment'}</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
