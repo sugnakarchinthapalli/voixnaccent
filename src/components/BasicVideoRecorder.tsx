@@ -31,10 +31,38 @@ export function BasicVideoRecorder() {
 
   useEffect(() => {
     initializeCamera();
+    
+    // Add page refresh/back button confirmation
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isRecording) {
+        e.preventDefault();
+        e.returnValue = 'You have an active recording. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+    
+    const handlePopState = (e: PopStateEvent) => {
+      if (isRecording) {
+        const confirmLeave = window.confirm('You have an active recording. Are you sure you want to go back?');
+        if (!confirmLeave) {
+          // Push the current state back to prevent navigation
+          window.history.pushState(null, '', window.location.href);
+        }
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+    
+    // Push initial state for back button handling
+    window.history.pushState(null, '', window.location.href);
+    
     return () => {
       cleanup();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
     };
-  }, []);
+  }, [isRecording]);
 
   const initializeCamera = async () => {
     try {
@@ -169,36 +197,63 @@ export function BasicVideoRecorder() {
   };
 
   const scheduleSnapshots = () => {
-    if (!isRecording) return;
+    console.log('Scheduling snapshots...');
     
     // First snapshot: 3-8 seconds after start
     const firstSnapshotDelay = Math.random() * 5000 + 3000; // 3-8 seconds
+    console.log(`First snapshot scheduled in ${Math.round(firstSnapshotDelay/1000)} seconds`);
     
     firstSnapshotTimerRef.current = setTimeout(() => {
+      console.log('Taking first snapshot...');
       takeSnapshot('first');
     }, firstSnapshotDelay);
     
     // Second snapshot: randomly between 30-90 seconds (within 2 minute window)
     const secondSnapshotDelay = Math.random() * 60000 + 30000; // 30-90 seconds
+    console.log(`Second snapshot scheduled in ${Math.round(secondSnapshotDelay/1000)} seconds`);
     
     secondSnapshotTimerRef.current = setTimeout(() => {
+      console.log('Taking second snapshot...');
       takeSnapshot('second');
     }, secondSnapshotDelay);
   };
 
   const takeSnapshot = (snapshotType: 'first' | 'second') => {
-    if (!videoRef.current || !canvasRef.current || !isRecording) return;
+    console.log(`Attempting to take ${snapshotType} snapshot...`);
+    
+    if (!videoRef.current || !canvasRef.current) {
+      console.error('Video or canvas ref not available');
+      return;
+    }
+    
+    if (!isRecording) {
+      console.error('Not recording, skipping snapshot');
+      return;
+    }
+    
+    if (!videoRef.current.videoWidth || !videoRef.current.videoHeight) {
+      console.error('Video dimensions not available:', {
+        width: videoRef.current.videoWidth,
+        height: videoRef.current.videoHeight
+      });
+      return;
+    }
     
     try {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       
-      if (!ctx) return;
+      if (!ctx) {
+        console.error('Canvas context not available');
+        return;
+      }
       
       // Set canvas dimensions to match video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
+      
+      console.log(`Canvas dimensions set to: ${canvas.width}x${canvas.height}`);
       
       // Draw current video frame
       ctx.drawImage(video, 0, 0);
@@ -212,8 +267,10 @@ export function BasicVideoRecorder() {
             timestamp: new Date().toLocaleTimeString()
           };
           
+            console.log(`Total snapshots: ${updated.length}`);
           setSnapshots(prev => [...prev, snapshot]);
-          console.log(`${snapshotType} snapshot captured at:`, snapshot.timestamp);
+            console.log(`${snapshotType} snapshot captured successfully:`, snapshot.timestamp);
+          console.error('Failed to create blob from canvas');
         }
       }, 'image/jpeg', 0.8);
       
