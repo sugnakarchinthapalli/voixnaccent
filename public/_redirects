@@ -1,0 +1,3 @@
+# Netlify redirects file (if deploying to Netlify instead of Vercel)
+/candidate-assessment /candidate-assessment 200
+/* /index.html 200

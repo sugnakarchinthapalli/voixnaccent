@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Video, Clock, CheckCircle, AlertCircle, Play, Square, Camera } from 'lucide-react';
+import { Mic, Video, Clock, CheckCircle, AlertCircle, Play, Square, Camera, Shield, XCircle } from 'lucide-react';
 import { Button } from '../UI/Button';
 import { LoadingSpinner } from '../UI/LoadingSpinner';
 import { questionService } from '../../services/questionService';
@@ -7,7 +7,7 @@ import { assessmentService } from '../../services/assessmentService';
 import { storageService } from '../../services/storageService';
 import { Question } from '../../types';
 
-type RecordingState = 'idle' | 'preparing' | 'recording' | 'stopped' | 'uploading' | 'completed' | 'error';
+type RecordingState = 'idle' | 'preparing' | 'webcam-blocked' | 'recording' | 'stopped' | 'uploading' | 'completed' | 'error';
 
 export function CandidateRecordingPage() {
   const [candidateName, setCandidateName] = useState('');
@@ -20,10 +20,13 @@ export function CandidateRecordingPage() {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const [snapshotTaken, setSnapshotTaken] = useState(false);
+  const [webcamVerified, setWebcamVerified] = useState(false);
+  const [snapshotBlob, setSnapshotBlob] = useState<Blob | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const snapshotTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadQuestion();
@@ -65,6 +68,9 @@ export function CandidateRecordingPage() {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
+    if (snapshotTimerRef.current) {
+      clearTimeout(snapshotTimerRef.current);
+    }
   };
 
   const validateForm = () => {
@@ -81,53 +87,55 @@ export function CandidateRecordingPage() {
     return true;
   };
 
-  const requestMediaAccess = async () => {
+  const requestWebcamAccess = async () => {
     try {
       setError('');
       setRecordingState('preparing');
 
-      let stream: MediaStream;
-      let hasVideo = false;
+      // MANDATORY: Request both video and audio - no fallback allowed
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100
+        }
+      });
 
-      try {
-        // First try to get both video and audio
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            sampleRate: 44100
-          }
-        });
-        hasVideo = true;
-      } catch (videoError) {
-        console.warn('Video access failed, trying audio only:', videoError);
-        
-        // Fallback to audio only
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            sampleRate: 44100
-          }
-        });
-        hasVideo = false;
-        setError('Camera unavailable - proceeding with audio-only recording. Identity verification will be limited.');
+      // Verify video track is active and working
+      const videoTracks = stream.getVideoTracks();
+      if (!videoTracks.length || !videoTracks[0].enabled) {
+        throw new Error('Video track not available or disabled');
       }
 
       setMediaStream(stream);
       
-      if (videoRef.current && hasVideo) {
+      if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play().catch(console.error);
-      } else if (videoRef.current) {
-        videoRef.current.style.display = 'none';
+        await videoRef.current.play();
+        
+        // Wait for video to be ready and verify it's actually displaying
+        await new Promise((resolve, reject) => {
+          const checkVideo = () => {
+            if (videoRef.current && videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
+              resolve(true);
+            } else {
+              setTimeout(checkVideo, 100);
+            }
+          };
+          
+          setTimeout(() => reject(new Error('Video failed to initialize')), 5000);
+          checkVideo();
+        });
       }
 
-      // Initialize MediaRecorder with only audio track
+      // Initialize MediaRecorder with audio only for recording
       const audioStream = new MediaStream([stream.getAudioTracks()[0]]);
       
-      // Check for supported audio MIME types
       let mimeType = 'audio/webm;codecs=opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
         if (MediaRecorder.isTypeSupported('audio/webm')) {
@@ -137,7 +145,7 @@ export function CandidateRecordingPage() {
         } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
           mimeType = 'audio/ogg';
         } else {
-          mimeType = ''; // Let browser choose
+          mimeType = '';
         }
       }
 
@@ -154,22 +162,38 @@ export function CandidateRecordingPage() {
       };
 
       setMediaRecorder(recorder);
+      setWebcamVerified(true);
       setRecordingState('idle');
 
     } catch (err) {
-      console.error('Error accessing media devices:', err);
-      setError(`Unable to access microphone: ${err instanceof Error ? err.message : 'Unknown error'}. Please ensure you have granted microphone permissions and try again.`);
-      setRecordingState('error');
+      console.error('Error accessing webcam:', err);
+      
+      let errorMessage = 'Webcam access is mandatory for this assessment. ';
+      
+      if (err instanceof Error) {
+        if (err.name === 'NotAllowedError') {
+          errorMessage += 'Please allow camera and microphone permissions and refresh the page.';
+        } else if (err.name === 'NotFoundError') {
+          errorMessage += 'No camera found. Please connect a webcam and try again.';
+        } else if (err.name === 'NotReadableError') {
+          errorMessage += 'Camera is being used by another application. Please close other applications and try again.';
+        } else {
+          errorMessage += err.message;
+        }
+      }
+      
+      setError(errorMessage);
+      setRecordingState('webcam-blocked');
     }
   };
 
-  const captureSnapshot = () => {
+  const captureSnapshot = async (): Promise<Blob | null> => {
     if (!videoRef.current || !canvasRef.current || !mediaStream) return null;
 
     const video = videoRef.current;
+    const videoTracks = mediaStream.getVideoTracks();
     
-    // Check if video track exists and is active
-    if (!mediaStream.getVideoTracks().length || !mediaStream.getVideoTracks()[0].enabled) return null;
+    if (!videoTracks.length || !videoTracks[0].enabled) return null;
     
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -187,29 +211,41 @@ export function CandidateRecordingPage() {
     return new Promise<Blob | null>((resolve) => {
       canvas.toBlob((blob) => {
         resolve(blob);
-      }, 'image/jpeg', 0.8); // 80% quality for compression
+      }, 'image/jpeg', 0.8);
     });
   };
 
+  const scheduleRandomSnapshot = () => {
+    // Schedule snapshot at random time between 15-105 seconds
+    const randomTime = Math.floor(Math.random() * 90) + 15;
+    
+    snapshotTimerRef.current = setTimeout(async () => {
+      if (recordingState === 'recording' && mediaStream) {
+        const snapshot = await captureSnapshot();
+        if (snapshot) {
+          setSnapshotBlob(snapshot);
+          setSnapshotTaken(true);
+          console.log('Random snapshot captured');
+        }
+      }
+    }, randomTime * 1000);
+  };
+
   const handleStartRecording = async () => {
-    if (!validateForm() || !mediaRecorder) return;
+    if (!validateForm() || !mediaRecorder || !webcamVerified) return;
 
     try {
       setError('');
       setRecordingState('recording');
       setTimeRemaining(120);
       setAudioChunks([]);
+      setSnapshotTaken(false);
+      setSnapshotBlob(null);
 
-      // Capture snapshot at random time (between 10-110 seconds)
-      const randomSnapshotTime = Math.floor(Math.random() * 100) + 10; // 10-110 seconds
-      setTimeout(async () => {
-        if (recordingState === 'recording' && mediaStream && mediaStream.getVideoTracks().length > 0) {
-          await captureSnapshot();
-          setSnapshotTaken(true);
-        }
-      }, randomSnapshotTime * 1000);
+      // Schedule random snapshot
+      scheduleRandomSnapshot();
 
-      mediaRecorder.start(1000); // Collect data every second
+      mediaRecorder.start(1000);
     } catch (err) {
       console.error('Error starting recording:', err);
       setError('Failed to start recording. Please try again.');
@@ -225,6 +261,20 @@ export function CandidateRecordingPage() {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
+      
+      if (snapshotTimerRef.current) {
+        clearTimeout(snapshotTimerRef.current);
+      }
+
+      // If no snapshot was taken during recording, take one now
+      if (!snapshotTaken) {
+        captureSnapshot().then(snapshot => {
+          if (snapshot) {
+            setSnapshotBlob(snapshot);
+            setSnapshotTaken(true);
+          }
+        });
+      }
     }
   };
 
@@ -234,20 +284,17 @@ export function CandidateRecordingPage() {
       return;
     }
 
+    if (!snapshotBlob) {
+      setError('Identity verification failed. Please ensure your camera is working and try again.');
+      return;
+    }
+
     setRecordingState('uploading');
     setError('');
 
     try {
       // Create audio blob from chunks
       const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-      
-      // Capture final snapshot if not taken during recording
-      let snapshotBlob: Blob | null = null;
-      if (!snapshotTaken && mediaStream && mediaStream.getVideoTracks().length > 0) {
-        snapshotBlob = await captureSnapshot();
-      } else {
-        snapshotBlob = await captureSnapshot(); // Take final snapshot anyway
-      }
 
       // Ensure bucket exists before uploading
       await storageService.ensureBucketExists();
@@ -259,14 +306,11 @@ export function CandidateRecordingPage() {
       
       const audioUrl = await storageService.uploadAudioFile(audioFile);
 
-      // Upload snapshot if available
-      let snapshotUrl: string | undefined;
-      if (snapshotBlob) {
-        const snapshotFile = new File([snapshotBlob], `snapshot-${Date.now()}.jpg`, {
-          type: 'image/jpeg'
-        });
-        snapshotUrl = await storageService.uploadImageFile(snapshotFile);
-      }
+      // Upload snapshot
+      const snapshotFile = new File([snapshotBlob], `snapshot-${Date.now()}.jpg`, {
+        type: 'image/jpeg'
+      });
+      const snapshotUrl = await storageService.uploadImageFile(snapshotFile);
 
       // Create candidate record
       const candidate = await assessmentService.createCandidate({
@@ -302,6 +346,8 @@ export function CandidateRecordingPage() {
     switch (recordingState) {
       case 'preparing':
         return 'Requesting camera and microphone access...';
+      case 'webcam-blocked':
+        return 'Webcam access is required to proceed with the assessment';
       case 'recording':
         return 'Recording in progress - speak clearly and naturally';
       case 'stopped':
@@ -358,6 +404,19 @@ export function CandidateRecordingPage() {
           </p>
         </div>
 
+        {/* Security Notice */}
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <Shield className="h-5 w-5 text-amber-600 mr-3" />
+            <div>
+              <h3 className="font-medium text-amber-800">Identity Verification Required</h3>
+              <p className="text-sm text-amber-700 mt-1">
+                This assessment requires webcam access for identity verification. Your camera will remain on during the recording to ensure test integrity.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Main Content */}
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           {/* Question Section */}
@@ -410,19 +469,39 @@ export function CandidateRecordingPage() {
 
                 <div className="pt-4">
                   <Button
-                    onClick={requestMediaAccess}
+                    onClick={requestWebcamAccess}
                     className="w-full flex items-center justify-center space-x-2"
                     size="lg"
                   >
                     <Video className="h-5 w-5" />
-                    <span>Start Assessment</span>
+                    <span>Enable Camera & Start Assessment</span>
                   </Button>
                 </div>
               </div>
             )}
 
+            {/* Webcam Blocked State */}
+            {recordingState === 'webcam-blocked' && (
+              <div className="text-center py-8">
+                <div className="mx-auto h-16 w-16 flex items-center justify-center bg-red-100 rounded-full mb-4">
+                  <XCircle className="h-8 w-8 text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Camera Access Required</h3>
+                <p className="text-gray-600 mb-6">
+                  This assessment cannot proceed without webcam access for identity verification.
+                </p>
+                <Button
+                  onClick={requestWebcamAccess}
+                  className="flex items-center space-x-2"
+                >
+                  <Video className="h-4 w-4" />
+                  <span>Try Again</span>
+                </Button>
+              </div>
+            )}
+
             {/* Video Preview and Recording Controls */}
-            {mediaStream && (
+            {mediaStream && webcamVerified && (
               <div className="space-y-6">
                 {/* Video Preview */}
                 <div className="relative">
@@ -439,12 +518,6 @@ export function CandidateRecordingPage() {
                     className="hidden"
                   />
                   
-                  {!mediaStream?.getVideoTracks().length && (
-                    <div className="absolute inset-0 bg-gray-800 flex items-center justify-center text-white">
-                      <p>Audio-only mode - Camera unavailable</p>
-                    </div>
-                  )}
-                  
                   {recordingState === 'recording' && (
                     <div className="absolute top-4 left-4 flex items-center space-x-2 bg-red-600 text-white px-3 py-1 rounded-full text-sm">
                       <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
@@ -458,6 +531,11 @@ export function CandidateRecordingPage() {
                       <span>Verified</span>
                     </div>
                   )}
+
+                  <div className="absolute bottom-4 left-4 flex items-center space-x-2 bg-blue-600 text-white px-3 py-1 rounded-full text-xs">
+                    <Shield className="h-3 w-3" />
+                    <span>Identity Monitoring Active</span>
+                  </div>
                 </div>
 
                 {/* Timer */}
@@ -502,6 +580,7 @@ export function CandidateRecordingPage() {
                       onClick={handleSubmitAssessment}
                       className="flex items-center space-x-2"
                       size="lg"
+                      disabled={!snapshotTaken}
                     >
                       <CheckCircle className="h-5 w-5" />
                       <span>Submit Assessment</span>
@@ -550,7 +629,8 @@ export function CandidateRecordingPage() {
                 <li>• Ensure you're in a quiet environment with good lighting</li>
                 <li>• Look directly at the camera and speak clearly</li>
                 <li>• You have a maximum of 2 minutes to respond</li>
-                <li>• Your camera will remain on for identity verification</li>
+                <li>• Your camera will remain on for identity verification throughout the assessment</li>
+                <li>• A verification snapshot will be captured during recording</li>
               </ul>
             </div>
           </div>
