@@ -134,6 +134,14 @@ export function CandidateRecordingPage() {
       }
     }
   }, 1000);
+
+        video.addEventListener('loadedmetadata', () => {
+    console.log('Video loaded:', video.videoWidth, 'x', video.videoHeight);
+    video.play().catch(err => {
+      console.warn('Autoplay failed:', err);
+      // Show click instruction to user
+    });
+  });
         
         // Enhanced video initialization for mobile compatibility
         const initializeVideo = () => {
@@ -186,7 +194,7 @@ export function CandidateRecordingPage() {
             console.log('Video readyState before srcObject:', video.readyState);
             
             // Explicitly load the video after setting srcObject
-            video.load();
+            
             console.log('Video load() called');
             console.log('Video readyState after load():', video.readyState);
             if (video.readyState >= 1) {
@@ -645,6 +653,11 @@ Please try:
                       autoPlay
                       muted
                       playsInline
+                      onClick={() => {
+    if (videoRef.current?.paused) {
+      videoRef.current.play().catch(console.warn);
+    }
+  }}
                       className="w-full h-full object-cover"
                       style={{
                         transform: 'scaleX(-1)', // Mirror the video for better UX
