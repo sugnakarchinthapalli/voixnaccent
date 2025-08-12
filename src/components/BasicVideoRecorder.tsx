@@ -5,7 +5,6 @@ import { Button } from './UI/Button';
 interface Snapshot {
   id: number;
   blob: Blob;
-  url: string;
   timestamp: string;
 }
 
@@ -27,7 +26,8 @@ export function BasicVideoRecorder() {
   
   // Timer ref
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const snapshotTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const firstSnapshotTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const secondSnapshotTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     initializeCamera();
@@ -136,8 +136,8 @@ export function BasicVideoRecorder() {
         setRecordingTime(prev => prev + 1);
       }, 1000);
       
-      // Schedule random snapshots
-      scheduleRandomSnapshot();
+      // Schedule exactly 2 snapshots
+      scheduleSnapshots();
       
       console.log('Recording started successfully');
       setError('');
@@ -158,25 +158,35 @@ export function BasicVideoRecorder() {
         clearInterval(timerRef.current);
       }
       
-      if (snapshotTimerRef.current) {
-        clearTimeout(snapshotTimerRef.current);
+      if (firstSnapshotTimerRef.current) {
+        clearTimeout(firstSnapshotTimerRef.current);
+      }
+      
+      if (secondSnapshotTimerRef.current) {
+        clearTimeout(secondSnapshotTimerRef.current);
       }
     }
   };
 
-  const scheduleRandomSnapshot = () => {
+  const scheduleSnapshots = () => {
     if (!isRecording) return;
     
-    // Random interval between 3-8 seconds
-    const randomDelay = Math.random() * 5000 + 3000;
+    // First snapshot: 3-8 seconds after start
+    const firstSnapshotDelay = Math.random() * 5000 + 3000; // 3-8 seconds
     
-    snapshotTimerRef.current = setTimeout(() => {
-      takeSnapshot();
-      scheduleRandomSnapshot(); // Schedule next snapshot
-    }, randomDelay);
+    firstSnapshotTimerRef.current = setTimeout(() => {
+      takeSnapshot('first');
+    }, firstSnapshotDelay);
+    
+    // Second snapshot: randomly between 30-90 seconds (within 2 minute window)
+    const secondSnapshotDelay = Math.random() * 60000 + 30000; // 30-90 seconds
+    
+    secondSnapshotTimerRef.current = setTimeout(() => {
+      takeSnapshot('second');
+    }, secondSnapshotDelay);
   };
 
-  const takeSnapshot = () => {
+  const takeSnapshot = (snapshotType: 'first' | 'second') => {
     if (!videoRef.current || !canvasRef.current || !isRecording) return;
     
     try {
@@ -199,12 +209,11 @@ export function BasicVideoRecorder() {
           const snapshot: Snapshot = {
             id: Date.now(),
             blob,
-            url: URL.createObjectURL(blob),
             timestamp: new Date().toLocaleTimeString()
           };
           
           setSnapshots(prev => [...prev, snapshot]);
-          console.log('Snapshot captured at:', snapshot.timestamp);
+          console.log(`${snapshotType} snapshot captured at:`, snapshot.timestamp);
         }
       }, 'image/jpeg', 0.8);
       
@@ -222,21 +231,6 @@ export function BasicVideoRecorder() {
     link.click();
   };
 
-  const downloadSnapshot = (snapshot: Snapshot) => {
-    const link = document.createElement('a');
-    link.href = snapshot.url;
-    link.download = `snapshot-${snapshot.timestamp.replace(/:/g, '-')}.jpg`;
-    link.click();
-  };
-
-  const downloadAllSnapshots = () => {
-    snapshots.forEach((snapshot, index) => {
-      setTimeout(() => {
-        downloadSnapshot(snapshot);
-      }, index * 500);
-    });
-  };
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -252,13 +246,13 @@ export function BasicVideoRecorder() {
       clearInterval(timerRef.current);
     }
     
-    if (snapshotTimerRef.current) {
-      clearTimeout(snapshotTimerRef.current);
+    if (firstSnapshotTimerRef.current) {
+      clearTimeout(firstSnapshotTimerRef.current);
     }
     
-    snapshots.forEach(snapshot => {
-      URL.revokeObjectURL(snapshot.url);
-    });
+    if (secondSnapshotTimerRef.current) {
+      clearTimeout(secondSnapshotTimerRef.current);
+    }
     
     if (audioUrl) {
       URL.revokeObjectURL(audioUrl);
@@ -389,57 +383,26 @@ export function BasicVideoRecorder() {
 
             {/* Snapshots */}
             <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Snapshots ({snapshots.length})
-                </h2>
-                
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Identity Verification
+              </h2>
+              
+              <div className="text-center py-8">
+                <div className="flex items-center justify-center space-x-2 mb-4">
+                  <div className={`w-3 h-3 rounded-full ${snapshots.length >= 1 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <div className={`w-3 h-3 rounded-full ${snapshots.length >= 2 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                </div>
+                <p className="text-sm text-gray-600">
+                  {snapshots.length === 0 && 'Identity verification snapshots will be captured automatically during recording'}
+                  {snapshots.length === 1 && 'First verification snapshot captured'}
+                  {snapshots.length === 2 && 'All verification snapshots captured'}
+                </p>
                 {snapshots.length > 0 && (
-                  <Button
-                    onClick={downloadAllSnapshots}
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center space-x-2"
-                  >
-                    <Download className="h-3 w-3" />
-                    <span>Download All</span>
-                  </Button>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {snapshots.length} snapshot{snapshots.length > 1 ? 's' : ''} ready for upload
+                  </p>
                 )}
               </div>
-              
-              {snapshots.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Camera className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                  <p>Snapshots will appear here during recording</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {snapshots.map((snapshot) => (
-                    <div key={snapshot.id} className="relative group">
-                      <img
-                        src={snapshot.url}
-                        alt={`Snapshot at ${snapshot.timestamp}`}
-                        className="w-full h-24 object-cover rounded-lg border"
-                      />
-                      
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center">
-                        <Button
-                          onClick={() => downloadSnapshot(snapshot)}
-                          variant="outline"
-                          size="sm"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                        >
-                          <Download className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      
-                      <div className="absolute bottom-1 left-1 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
-                        {snapshot.timestamp}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>
