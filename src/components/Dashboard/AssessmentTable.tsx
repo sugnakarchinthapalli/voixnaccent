@@ -17,6 +17,24 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const getDisplayAssessedBy = (assessedBy: string) => {
+    if (assessedBy === 'Form Response') return 'Form Response';
+    if (assessedBy === 'Candidate Submission') return 'Candidate Submission';
+    
+    // For email addresses, truncate if too long
+    if (assessedBy.includes('@')) {
+      if (assessedBy.length > 20) {
+        const [username, domain] = assessedBy.split('@');
+        if (username.length > 8) {
+          return `${username.substring(0, 8)}...@${domain}`;
+        }
+        return assessedBy;
+      }
+    }
+    
+    return assessedBy;
+  };
+
   const handleSort = (field: keyof Assessment) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -224,10 +242,12 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       assessment.assessed_by === 'Form Response' 
-                        ? 'bg-blue-100 text-blue-800' 
+                        ? 'bg-blue-100 text-blue-800'
+                        : assessment.assessed_by === 'Candidate Submission'
+                        ? 'bg-purple-100 text-purple-800'
                         : 'bg-green-100 text-green-800'
                     }`}>
-                      {assessment.assessed_by}
+                      {getDisplayAssessedBy(assessment.assessed_by)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

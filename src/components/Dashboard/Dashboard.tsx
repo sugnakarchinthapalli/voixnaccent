@@ -17,9 +17,22 @@ export function Dashboard() {
   const [filters, setFilters] = useState({
     assessedBy: '',
     overallGrade: '',
-    dateFrom: '',
-    dateTo: ''
+    dateFrom: getFirstDayOfCurrentMonth(),
+    dateTo: getLastDayOfCurrentMonth()
   });
+
+  // Helper functions for default date filtering
+  function getFirstDayOfCurrentMonth(): string {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return firstDay.toISOString().split('T')[0];
+  }
+
+  function getLastDayOfCurrentMonth(): string {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return lastDay.toISOString().split('T')[0];
+  }
 
   useEffect(() => {
     loadAssessments();
@@ -102,8 +115,8 @@ export function Dashboard() {
     setFilters({
       assessedBy: '',
       overallGrade: '',
-      dateFrom: '',
-      dateTo: ''
+      dateFrom: getFirstDayOfCurrentMonth(),
+      dateTo: getLastDayOfCurrentMonth()
     });
   };
 

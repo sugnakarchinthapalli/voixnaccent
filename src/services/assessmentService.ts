@@ -190,7 +190,7 @@ export class AssessmentService {
       };
 
       // All assessments are now manual
-      const assessedBy = await this.getCurrentUserEmail();
+      const assessedBy = 'Candidate Submission';
 
       // Save assessment
       const { error: assessmentError } = await supabase
