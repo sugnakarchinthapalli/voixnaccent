@@ -1,9 +1,10 @@
 import { supabase } from '../lib/supabase';
+import { supabaseServiceRole } from '../lib/supabaseServiceRole';
 
 export class StorageService {
   private bucketName = 'voice-assessments';
 
-  async uploadAudioFile(file: File): Promise<string> {
+  async uploadAudioFile(file: File, useServiceRole: boolean = false): Promise<string> {
     try {
       // Generate unique filename
       const fileExt = file.name.split('.').pop();
@@ -12,8 +13,11 @@ export class StorageService {
 
       console.log(`Uploading file: ${file.name} (${file.size} bytes) as ${filePath}`);
 
+      // Use service role client for candidate submissions to bypass RLS
+      const client = useServiceRole ? supabaseServiceRole : supabase;
+
       // Upload file to Supabase Storage
-      const { data, error } = await supabase.storage
+      const { data, error } = await client.storage
         .from(this.bucketName)
         .upload(filePath, file, {
           cacheControl: '3600',
@@ -28,7 +32,7 @@ export class StorageService {
       console.log('File uploaded successfully:', data);
 
       // Get public URL
-      const { data: urlData } = supabase.storage
+      const { data: urlData } = client.storage
         .from(this.bucketName)
         .getPublicUrl(filePath);
 
@@ -45,7 +49,7 @@ export class StorageService {
     }
   }
 
-  async uploadImageFile(file: File | Blob, filename?: string): Promise<string> {
+  async uploadImageFile(file: File | Blob, filename?: string, useServiceRole: boolean = false): Promise<string> {
     try {
       // Generate unique filename if not provided
       const fileExt = filename ? filename.split('.').pop() : 'jpg';
@@ -54,8 +58,11 @@ export class StorageService {
 
       console.log(`Uploading image: ${fileName} (${file.size} bytes) as ${filePath}`);
 
+      // Use service role client for candidate submissions to bypass RLS
+      const client = useServiceRole ? supabaseServiceRole : supabase;
+
       // Upload file to Supabase Storage
-      const { data, error } = await supabase.storage
+      const { data, error } = await client.storage
         .from(this.bucketName)
         .upload(filePath, file, {
           cacheControl: '3600',
@@ -70,7 +77,7 @@ export class StorageService {
       console.log('Image uploaded successfully:', data);
 
       // Get public URL
-      const { data: urlData } = supabase.storage
+      const { data: urlData } = client.storage
         .from(this.bucketName)
         .getPublicUrl(filePath);
 
