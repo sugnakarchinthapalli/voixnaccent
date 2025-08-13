@@ -17,6 +17,8 @@ export class AssessmentService {
     source_type: 'auto' | 'manual';
     snapshot_url?: string;
   }): Promise<Candidate> {
+    console.log('Creating candidate with data:', candidateData);
+    
     // Check for existing candidate with same email
     const { data: existingCandidate } = await supabase
       .from('candidates')
@@ -25,20 +27,29 @@ export class AssessmentService {
       .single();
 
     if (existingCandidate) {
+      console.log('Candidate already exists:', existingCandidate);
       throw new Error(`A candidate with email "${candidateData.email}" already exists: ${existingCandidate.name}`);
     }
 
+    console.log('Inserting new candidate...');
     const { data, error } = await supabase
       .from('candidates')
       .insert(candidateData)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error creating candidate:', error);
+      throw new Error(`Failed to create candidate: ${error.message}`);
+    }
+    
+    console.log('Candidate created successfully:', data);
     return data;
   }
 
   async addToQueue(candidateId: string, priority: number = 0, questionId?: string): Promise<QueueItem> {
+    console.log('Adding to queue:', { candidateId, priority, questionId });
+    
     const { data, error } = await supabase
       .from('assessment_queue')
       .insert({
@@ -50,8 +61,13 @@ export class AssessmentService {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error adding to queue:', error);
+      throw new Error(`Failed to add to assessment queue: ${error.message}`);
+    }
 
+    console.log('Added to queue successfully:', data);
+    
     // Start processing if not already running
     this.startQueueProcessing();
     
