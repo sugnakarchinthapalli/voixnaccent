@@ -651,16 +651,6 @@ export function CandidateAssessmentPage() {
                         {snapshots.length}/2 verification snapshots captured
                       </span>
                     </div>
-                    
-                    {/* Debug Info - Remove in production */}
-                    <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-600">
-                      <p>Debug Info:</p>
-                      <p>• Recording: {isRecording ? 'Yes' : 'No'}</p>
-                      <p>• Timer: {recordingTime}s</p>
-                      <p>• Snapshots: {snapshots.length}</p>
-                      <p>• Camera Ready: {cameraReady ? 'Yes' : 'No'}</p>
-                      <p>• Video Dimensions: {videoRef.current?.videoWidth || 0}x{videoRef.current?.videoHeight || 0}</p>
-                    </div>
                   </div>
                 </div>
               </div>
