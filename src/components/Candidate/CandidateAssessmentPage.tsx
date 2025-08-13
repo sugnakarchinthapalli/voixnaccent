@@ -68,11 +68,12 @@ export function CandidateAssessmentPage() {
     window.history.pushState(null, '', window.location.href);
     
     return () => {
+      console.log('Component unmounting, cleaning up...');
       cleanup();
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [isRecording]);
+  }, []); // Only run once on mount
 
   const fetchRandomQuestion = async () => {
     try {
@@ -186,50 +187,40 @@ export function CandidateAssessmentPage() {
       setSnapshots([]); // Reset snapshots
       setError(''); // Clear any previous errors
       
-      // Start timer - FIXED: Clear any existing timer first
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      
+      // Start timer with proper cleanup
       console.log('Starting recording timer...');
-      timerRef.current = setInterval(() => {
-        setRecordingTime(prev => {
-          const newTime = prev + 1;
-          console.log(`Recording time: ${newTime}s`);
-          // Auto-stop at max time
-          if (newTime >= MAX_RECORDING_TIME) {
-            console.log('Max recording time reached, stopping...');
-            stopRecording();
-            return MAX_RECORDING_TIME;
-          }
-          return newTime;
-        });
-      }, 1000);
+      const startTime = Date.now();
       
-      // FIXED: Schedule snapshots with proper timing
-      // Take first snapshot within 3-5 seconds
-      const firstSnapshotDelay = Math.random() * 2000 + 3000; // 3-5 seconds
+      const updateTimer = () => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        console.log(`Timer update: ${elapsed}s`);
+        setRecordingTime(elapsed);
+        
+        if (elapsed >= MAX_RECORDING_TIME) {
+          console.log('Max recording time reached, stopping...');
+          stopRecording();
+          return;
+        }
+        
+        timerRef.current = setTimeout(updateTimer, 1000);
+      };
+      
+      timerRef.current = setTimeout(updateTimer, 1000);
+      
+      // Schedule snapshots
+      const firstSnapshotDelay = 3000; // 3 seconds - fixed timing for testing
       console.log(`First snapshot scheduled in ${Math.round(firstSnapshotDelay/1000)} seconds`);
       
-      if (firstSnapshotTimerRef.current) {
-        clearTimeout(firstSnapshotTimerRef.current);
-      }
-      
       firstSnapshotTimerRef.current = setTimeout(() => {
-        console.log('Taking first snapshot...');
+        console.log('=== TAKING FIRST SNAPSHOT ===');
         takeSnapshot('first');
       }, firstSnapshotDelay);
       
-      // Schedule second snapshot between 25-35 seconds
-      const secondSnapshotDelay = Math.random() * 10000 + 25000; // 25-35 seconds
+      const secondSnapshotDelay = 15000; // 15 seconds - fixed timing for testing
       console.log(`Second snapshot scheduled in ${Math.round(secondSnapshotDelay/1000)} seconds`);
       
-      if (secondSnapshotTimerRef.current) {
-        clearTimeout(secondSnapshotTimerRef.current);
-      }
-      
       secondSnapshotTimerRef.current = setTimeout(() => {
-        console.log('Taking second snapshot...');
+        console.log('=== TAKING SECOND SNAPSHOT ===');
         takeSnapshot('second');
       }, secondSnapshotDelay);
       
@@ -247,9 +238,9 @@ export function CandidateAssessmentPage() {
       mediaRecorder.stop();
       setIsRecording(false);
       
-      // FIXED: Proper timer cleanup
+      // Clear all timers
       if (timerRef.current) {
-        clearInterval(timerRef.current);
+        clearTimeout(timerRef.current);
         timerRef.current = null;
         timerRef.current = null;
       }
@@ -271,21 +262,21 @@ export function CandidateAssessmentPage() {
   };
 
   const takeSnapshot = (snapshotType: 'first' | 'second') => {
-    console.log(`Attempting to take ${snapshotType} snapshot...`);
+    console.log(`=== ATTEMPTING ${snapshotType.toUpperCase()} SNAPSHOT ===`);
     
     // Check if we're still recording
     if (!isRecording) {
-      console.log('Not recording anymore, skipping snapshot');
+      console.error('❌ Not recording anymore, skipping snapshot');
       return;
     }
     
     if (!videoRef.current || !canvasRef.current) {
-      console.error('Video or canvas ref not available');
+      console.error('❌ Video or canvas ref not available');
       return;
     }
     
     const video = videoRef.current;
-    console.log('Video element state:', {
+    console.log('📹 Video element state:', {
       videoWidth: video.videoWidth,
       videoHeight: video.videoHeight,
       readyState: video.readyState,
@@ -294,7 +285,7 @@ export function CandidateAssessmentPage() {
     });
 
     if (!video.videoWidth || !video.videoHeight) {
-      console.error('Video dimensions not available:', {
+      console.error('❌ Video dimensions not available:', {
         width: video.videoWidth,
         height: video.videoHeight
       });
@@ -306,7 +297,7 @@ export function CandidateAssessmentPage() {
       const ctx = canvas.getContext('2d');
       
       if (!ctx) {
-        console.error('Canvas context not available');
+        console.error('❌ Canvas context not available');
         return;
       }
       
@@ -314,16 +305,16 @@ export function CandidateAssessmentPage() {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       
-      console.log(`Canvas dimensions set to: ${canvas.width}x${canvas.height}`);
+      console.log(`🎨 Canvas dimensions set to: ${canvas.width}x${canvas.height}`);
       
       // Draw current video frame
       ctx.drawImage(video, 0, 0);
-      console.log('Video frame drawn to canvas');
+      console.log('🖼️ Video frame drawn to canvas');
       
       // Convert to blob
       canvas.toBlob((blob) => {
         if (blob) {
-          console.log(`✅ ${snapshotType} snapshot blob created:`, {
+          console.log(`✅ ${snapshotType.toUpperCase()} SNAPSHOT BLOB CREATED:`, {
             size: blob.size,
             type: blob.type
           });
@@ -336,16 +327,16 @@ export function CandidateAssessmentPage() {
           
           setSnapshots(prev => {
             const updated = [...prev, snapshot];
-            console.log(`✅ ${snapshotType} snapshot added to state. Total snapshots: ${updated.length}`);
+            console.log(`✅ ${snapshotType.toUpperCase()} SNAPSHOT ADDED TO STATE. Total: ${updated.length}`);
             return updated;
           });
         } else {
-          console.error('❌ Failed to create blob from canvas');
+          console.error(`❌ Failed to create blob from canvas for ${snapshotType} snapshot`);
         }
       }, 'image/jpeg', 0.9);
       
     } catch (err) {
-      console.error(`❌ Error taking ${snapshotType} snapshot:`, err);
+      console.error(`❌ ERROR TAKING ${snapshotType.toUpperCase()} SNAPSHOT:`, err);
     }
   };
 
@@ -430,26 +421,32 @@ export function CandidateAssessmentPage() {
   };
 
   const cleanup = () => {
+    console.log('🧹 Starting cleanup...');
+    
     if (mediaStream) {
+      console.log('🧹 Stopping media stream tracks...');
       mediaStream.getTracks().forEach(track => track.stop());
     }
     
     if (timerRef.current) {
-      clearInterval(timerRef.current);
+      console.log('🧹 Clearing timer...');
+      clearTimeout(timerRef.current);
       timerRef.current = null;
     }
     
     if (firstSnapshotTimerRef.current) {
+      console.log('🧹 Clearing first snapshot timer...');
       clearTimeout(firstSnapshotTimerRef.current);
       firstSnapshotTimerRef.current = null;
     }
     
     if (secondSnapshotTimerRef.current) {
+      console.log('🧹 Clearing second snapshot timer...');
       clearTimeout(secondSnapshotTimerRef.current);
       secondSnapshotTimerRef.current = null;
     }
     
-    console.log('Cleanup completed');
+    console.log('🧹 Cleanup completed');
   };
 
   // Success page
