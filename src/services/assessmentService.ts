@@ -146,17 +146,18 @@ export class AssessmentService {
 
   private async processNextBatch(): Promise<boolean> {
     if (this.processingCount >= MAX_CONCURRENT_ASSESSMENTS) {
+      console.log(`⏳ Max concurrent assessments reached (${this.processingCount}/${MAX_CONCURRENT_ASSESSMENTS})`);
       return false;
     }
 
-    // Get pending items from queue
+    // Get pending items from queue (including failed items for retry)
     const { data: pendingItems, error } = await supabase
       .from('assessment_queue')
       .select(`
         *,
         candidate:candidates(*)
       `)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'failed'])
       .order('priority', { ascending: false })
       .order('created_at', { ascending: true })
       .limit(MAX_CONCURRENT_ASSESSMENTS - this.processingCount);
@@ -167,8 +168,11 @@ export class AssessmentService {
     }
 
     if (!pendingItems || pendingItems.length === 0) {
+      console.log('📭 No pending or failed items in queue');
       return false;
     }
+
+    console.log(`📋 Found ${pendingItems.length} items to process`);
 
     // Process items concurrently
     const processingPromises = pendingItems.map(item => this.processQueueItem(item));
