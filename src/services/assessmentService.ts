@@ -183,15 +183,24 @@ export class AssessmentService {
 
   private async processQueueItem(queueItem: any) {
     this.processingCount++;
+    console.log(`🔄 Processing queue item for candidate: ${queueItem.candidate?.name || 'Unknown'}`);
     
     try {
       // Mark as processing
+      // Reset retry count if this was a failed item being retried
+      const updateData: any = { 
+        status: 'processing',
+        updated_at: new Date().toISOString()
+      };
+      
+      if (queueItem.status === 'failed') {
+        console.log(`🔄 Retrying failed assessment for: ${queueItem.candidate?.name}`);
+        updateData.error_message = null; // Clear previous error
+      }
+      
       await supabase
         .from('assessment_queue')
-        .update({ 
-          status: 'processing',
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', queueItem.id);
 
       const candidate = queueItem.candidate;
