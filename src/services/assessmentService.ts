@@ -142,21 +142,21 @@ export class AssessmentService {
     } finally {
       this.isProcessing = false;
     }
+  }
 
   private async processNextBatch(): Promise<boolean> {
     if (this.processingCount >= MAX_CONCURRENT_ASSESSMENTS) {
-      console.log(`⏳ Max concurrent assessments reached (${this.processingCount}/${MAX_CONCURRENT_ASSESSMENTS})`);
       return false;
     }
 
-    // Get pending items from queue (including failed items for retry)
+    // Get pending items from queue
     const { data: pendingItems, error } = await supabase
       .from('assessment_queue')
       .select(`
         *,
         candidate:candidates(*)
       `)
-      .in('status', ['pending', 'failed'])
+      .eq('status', 'pending')
       .order('priority', { ascending: false })
       .order('created_at', { ascending: true })
       .limit(MAX_CONCURRENT_ASSESSMENTS - this.processingCount);
@@ -167,11 +167,8 @@ export class AssessmentService {
     }
 
     if (!pendingItems || pendingItems.length === 0) {
-      console.log('📭 No pending or failed items in queue');
       return false;
     }
-
-    console.log(`📋 Found ${pendingItems.length} items to process`);
 
     // Process items concurrently
     const processingPromises = pendingItems.map(item => this.processQueueItem(item));
@@ -182,24 +179,15 @@ export class AssessmentService {
 
   private async processQueueItem(queueItem: any) {
     this.processingCount++;
-    console.log(`🔄 Processing queue item for candidate: ${queueItem.candidate?.name || 'Unknown'}`);
     
     try {
       // Mark as processing
-      // Reset retry count if this was a failed item being retried
-      const updateData: any = { 
-        status: 'processing',
-        updated_at: new Date().toISOString()
-      };
-      
-      if (queueItem.status === 'failed') {
-        console.log(`🔄 Retrying failed assessment for: ${queueItem.candidate?.name}`);
-        updateData.error_message = null; // Clear previous error
-      }
-      
       await supabase
         .from('assessment_queue')
-        .update(updateData)
+        .update({ 
+          status: 'processing',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', queueItem.id);
 
       const candidate = queueItem.candidate;
@@ -262,7 +250,6 @@ export class AssessmentService {
         })
         .eq('id', queueItem.id);
 
-      console.log(`✅ Assessment completed for: ${candidate.name}`);
     } catch (error) {
       console.error('Error processing queue item:', error);
       
@@ -295,32 +282,28 @@ export class AssessmentService {
       
       // Update retry count
       const newRetryCount = (queueItem.retry_count || 0) + 1;
-      const maxRetries = 5; // Increased retry attempts
+      const maxRetries = 3;
       
       if (newRetryCount < maxRetries) {
-        console.log(`🔄 Scheduling retry ${newRetryCount}/${maxRetries} for candidate: ${candidate.name}`);
-        
-        // Calculate exponential backoff delay (but don't actually delay, let the monitor handle timing)
-        const backoffMinutes = Math.min(Math.pow(2, newRetryCount - 1) * 5, 60); // 5, 10, 20, 40, 60 minutes max
-        console.log(`⏰ Next retry will be attempted in ~${backoffMinutes} minutes by queue monitor`);
-        
+        console.log(`Retrying assessment (attempt ${newRetryCount + 1}/${maxRetries + 1}) for candidate: ${candidate.name}`);
+        // Retry later
         await supabase
           .from('assessment_queue')
           .update({ 
-            status: 'failed', // Keep as failed, will be picked up by monitor
+            status: 'pending',
             retry_count: newRetryCount,
             error_message: userFriendlyMessage,
             updated_at: new Date().toISOString()
           })
           .eq('id', queueItem.id);
       } else {
-        console.log(`❌ Assessment failed permanently after ${maxRetries} attempts for candidate: ${candidate.name}`);
+        console.log(`Assessment failed permanently after ${maxRetries + 1} attempts for candidate: ${candidate.name}`);
         // Mark as failed
         await supabase
           .from('assessment_queue')
           .update({ 
             status: 'failed',
-            error_message: `Assessment failed permanently after ${maxRetries} attempts: ${userFriendlyMessage}`,
+            error_message: `Assessment failed after ${maxRetries + 1} attempts: ${userFriendlyMessage}`,
             updated_at: new Date().toISOString()
           })
           .eq('id', queueItem.id);
