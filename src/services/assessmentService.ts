@@ -296,28 +296,32 @@ export class AssessmentService {
       
       // Update retry count
       const newRetryCount = (queueItem.retry_count || 0) + 1;
-      const maxRetries = 3;
+      const maxRetries = 5; // Increased retry attempts
       
       if (newRetryCount < maxRetries) {
-        console.log(`Retrying assessment (attempt ${newRetryCount + 1}/${maxRetries + 1}) for candidate: ${candidate.name}`);
-        // Retry later
+        console.log(`🔄 Scheduling retry ${newRetryCount}/${maxRetries} for candidate: ${candidate.name}`);
+        
+        // Calculate exponential backoff delay (but don't actually delay, let the monitor handle timing)
+        const backoffMinutes = Math.min(Math.pow(2, newRetryCount - 1) * 5, 60); // 5, 10, 20, 40, 60 minutes max
+        console.log(`⏰ Next retry will be attempted in ~${backoffMinutes} minutes by queue monitor`);
+        
         await supabase
           .from('assessment_queue')
           .update({ 
-            status: 'pending',
+            status: 'failed', // Keep as failed, will be picked up by monitor
             retry_count: newRetryCount,
             error_message: userFriendlyMessage,
             updated_at: new Date().toISOString()
           })
           .eq('id', queueItem.id);
       } else {
-        console.log(`Assessment failed permanently after ${maxRetries + 1} attempts for candidate: ${candidate.name}`);
+        console.log(`❌ Assessment failed permanently after ${maxRetries} attempts for candidate: ${candidate.name}`);
         // Mark as failed
         await supabase
           .from('assessment_queue')
           .update({ 
             status: 'failed',
-            error_message: `Assessment failed after ${maxRetries + 1} attempts: ${userFriendlyMessage}`,
+            error_message: `Assessment failed permanently after ${maxRetries} attempts: ${userFriendlyMessage}`,
             updated_at: new Date().toISOString()
           })
           .eq('id', queueItem.id);
