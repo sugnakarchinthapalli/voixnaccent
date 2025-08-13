@@ -10,7 +10,7 @@ function App() {
     <Router>
       <Routes>
         {/* Public route for candidate assessment - NO AuthWrapper */}
-        <Route path="/candidate-assessment" element={<CandidateAssessmentPage />} />
+        <Route path="/voicetest" element={<CandidateAssessmentPage />} />
         
         {/* Protected routes for internal users - WITH AuthWrapper */}
         <Route path="/*" element={
