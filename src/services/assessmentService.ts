@@ -263,6 +263,7 @@ export class AssessmentService {
         })
         .eq('id', queueItem.id);
 
+      console.log(`✅ Assessment completed for: ${candidate.name}`);
     } catch (error) {
       console.error('Error processing queue item:', error);
       
