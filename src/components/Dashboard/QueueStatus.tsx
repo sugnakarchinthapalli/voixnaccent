@@ -111,7 +111,7 @@ export function QueueStatus() {
               )}
               {queueStatus.pending > 0 && (
                 <span>
-                  {queueStatus.pending} pending
+                  {queueStatus.pending} pending - AI will process assessments in 10 sec intervals
                 </span>
               )}
               {queueStatus.failed > 0 && (
