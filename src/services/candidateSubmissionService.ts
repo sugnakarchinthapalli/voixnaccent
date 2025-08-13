@@ -40,7 +40,7 @@ export class CandidateSubmissionService {
           name: candidateData.name.trim(),
           email: candidateData.email.trim(),
           audio_source: candidateData.audio_source,
-          source_type: 'manual',
+          source_type: 'auto', // Mark as 'auto' to distinguish from manual uploads
           snapshot_url: candidateData.snapshot_url || null
         })
         .select()

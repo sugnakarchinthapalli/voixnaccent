@@ -237,7 +237,20 @@ export class AssessmentService {
       };
 
       // All assessments are now manual
-      const assessedBy = 'Candidate Submission';
+      // Determine who assessed this based on the candidate source
+      let assessedBy = 'Candidate Submission'; // Default for candidate submissions
+      
+      // If this was a manual upload by an authenticated user, use their email
+      if (candidate.source_type === 'manual') {
+        try {
+          const userEmail = await this.getCurrentUserEmail();
+          if (userEmail && userEmail !== 'Unknown User' && userEmail.includes('@mediamint.com')) {
+            assessedBy = userEmail;
+          }
+        } catch (error) {
+          console.log('Could not get user email, using default assessed_by');
+        }
+      }
 
       // Save assessment
       const { error: assessmentError } = await supabase
