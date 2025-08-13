@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Mic, Square, Send, AlertCircle, CheckCircle, Clock, User, Mail } from 'lucide-react';
 import { Button } from '../UI/Button';
 import { questionService } from '../../services/questionService';
-import { assessmentService } from '../../services/assessmentService';
+import { candidateSubmissionService } from '../../services/candidateSubmissionService';
 import { storageService } from '../../services/storageService';
 import { Question } from '../../types';
 
@@ -367,21 +367,16 @@ export function CandidateAssessmentPage() {
       );
       console.log('Snapshot uploaded:', snapshotUrl);
       
-      // Create candidate
-      console.log('Creating candidate record...');
-      const candidate = await assessmentService.createCandidate({
+      // Create candidate submission using service role
+      console.log('Creating candidate submission...');
+      const { candidate, queueItem } = await candidateSubmissionService.createCandidateSubmission({
         name: candidateName.trim(),
         email: candidateEmail.trim(),
         audio_source: audioUrl,
-        source_type: 'manual',
-        snapshot_url: snapshotUrl
+        snapshot_url: snapshotUrl,
+        question_id: question?.id
       });
-      console.log('Candidate created:', candidate);
-      
-      // Add to assessment queue
-      console.log('Adding to assessment queue...');
-      await assessmentService.addToQueue(candidate.id, 10); // High priority for manual submissions
-      console.log('Added to queue successfully');
+      console.log('Candidate submission completed:', { candidate, queueItem });
       
       setSubmitted(true);
       
