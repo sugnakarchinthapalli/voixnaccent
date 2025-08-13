@@ -37,11 +37,15 @@ export function Dashboard() {
   useEffect(() => {
     loadAssessments();
 
-    // Set up periodic refresh
+    // Set up periodic refresh and start queue monitoring
     const interval = setInterval(loadAssessments, 15000); // Refresh every 15 seconds
+    
+    // Start queue monitoring for automatic processing
+    assessmentService.startQueueMonitoring();
     
     return () => {
       clearInterval(interval);
+      assessmentService.stopQueueMonitoring();
     };
   }, []);
 
