@@ -208,21 +208,19 @@ export function CandidateAssessmentPage() {
       timerRef.current = setTimeout(updateTimer, 1000);
       
       // Schedule snapshots
-      const firstSnapshotDelay = 3000; // 3 seconds - fixed timing for testing
-      console.log(`First snapshot scheduled in ${Math.round(firstSnapshotDelay/1000)} seconds`);
+      console.log('📸 Scheduling snapshots...');
       
-      firstSnapshotTimerRef.current = setTimeout(() => {
-        console.log('=== TAKING FIRST SNAPSHOT ===');
+      // Take first snapshot after 5 seconds
+      setTimeout(() => {
+        console.log('📸 Time for first snapshot!');
         takeSnapshot('first');
-      }, firstSnapshotDelay);
+      }, 5000);
       
-      const secondSnapshotDelay = 15000; // 15 seconds - fixed timing for testing
-      console.log(`Second snapshot scheduled in ${Math.round(secondSnapshotDelay/1000)} seconds`);
-      
-      secondSnapshotTimerRef.current = setTimeout(() => {
-        console.log('=== TAKING SECOND SNAPSHOT ===');
+      // Take second snapshot after 20 seconds
+      setTimeout(() => {
+        console.log('📸 Time for second snapshot!');
         takeSnapshot('second');
-      }, secondSnapshotDelay);
+      }, 20000);
       
       console.log('Recording started successfully');
       
@@ -262,62 +260,43 @@ export function CandidateAssessmentPage() {
   };
 
   const takeSnapshot = (snapshotType: 'first' | 'second') => {
-    console.log(`=== ATTEMPTING ${snapshotType.toUpperCase()} SNAPSHOT ===`);
-    
-    // Check if we're still recording
-    if (!isRecording) {
-      console.error('❌ Not recording anymore, skipping snapshot');
-      return;
-    }
+    console.log(`📸 Taking ${snapshotType} snapshot...`);
     
     if (!videoRef.current || !canvasRef.current) {
-      console.error('❌ Video or canvas ref not available');
+      console.error('❌ Video or canvas not available');
       return;
     }
     
     const video = videoRef.current;
-    console.log('📹 Video element state:', {
-      videoWidth: video.videoWidth,
-      videoHeight: video.videoHeight,
-      readyState: video.readyState,
-      currentTime: video.currentTime,
-      paused: video.paused
-    });
-
-    if (!video.videoWidth || !video.videoHeight) {
-      console.error('❌ Video dimensions not available:', {
-        width: video.videoWidth,
-        height: video.videoHeight
-      });
+    const canvas = canvasRef.current;
+    
+    // Check if video has loaded
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.error('❌ Video not ready, dimensions:', video.videoWidth, 'x', video.videoHeight);
       return;
     }
     
     try {
-      const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      
       if (!ctx) {
-        console.error('❌ Canvas context not available');
+        console.error('❌ No canvas context');
         return;
       }
       
-      // Set canvas dimensions to match video
+      // Set canvas size to match video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       
-      console.log(`🎨 Canvas dimensions set to: ${canvas.width}x${canvas.height}`);
+      console.log(`✅ Canvas set to: ${canvas.width}x${canvas.height}`);
       
-      // Draw current video frame
+      // Draw the current video frame
       ctx.drawImage(video, 0, 0);
-      console.log('🖼️ Video frame drawn to canvas');
+      console.log('✅ Video frame drawn to canvas');
       
-      // Convert to blob
+      // Convert canvas to image blob
       canvas.toBlob((blob) => {
         if (blob) {
-          console.log(`✅ ${snapshotType.toUpperCase()} SNAPSHOT BLOB CREATED:`, {
-            size: blob.size,
-            type: blob.type
-          });
+          console.log(`✅ ${snapshotType} snapshot created! Size: ${blob.size} bytes`);
           
           const snapshot: Snapshot = {
             id: Date.now(),
@@ -327,16 +306,16 @@ export function CandidateAssessmentPage() {
           
           setSnapshots(prev => {
             const updated = [...prev, snapshot];
-            console.log(`✅ ${snapshotType.toUpperCase()} SNAPSHOT ADDED TO STATE. Total: ${updated.length}`);
+            console.log(`✅ Snapshot added! Total snapshots: ${updated.length}`);
             return updated;
           });
         } else {
-          console.error(`❌ Failed to create blob from canvas for ${snapshotType} snapshot`);
+          console.error(`❌ Failed to create blob for ${snapshotType} snapshot`);
         }
-      }, 'image/jpeg', 0.9);
+      }, 'image/jpeg', 0.8);
       
     } catch (err) {
-      console.error(`❌ ERROR TAKING ${snapshotType.toUpperCase()} SNAPSHOT:`, err);
+      console.error(`❌ Error taking ${snapshotType} snapshot:`, err);
     }
   };
 
