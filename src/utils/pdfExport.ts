@@ -64,46 +64,64 @@ export async function exportAssessmentToPDF(assessment: Assessment): Promise<voi
 }
 
 function generatePDFContent(assessment: Assessment): string {
-  const getOverallScore = () => {
+  const isNewCEFRAssessment = assessment.overall_cefr_level;
+  
+  const getCEFRColor = (level: string) => {
+    switch (level) {
+      case 'C2':
+      case 'C1':
+        return '#10B981'; // Green
+      case 'B2':
+      case 'B1':
+        return '#F59E0B'; // Amber
+      case 'A2':
+      case 'A1':
+      default:
+        return '#EF4444'; // Red
+    }
+  };
+
+  const getCEFRDescription = (level: string) => {
+    const descriptions = {
+      'C2': 'Mastery - Near-native proficiency',
+      'C1': 'Proficiency - Advanced level',
+      'B2': 'Upper-Intermediate - Independent user',
+      'B1': 'Intermediate - Basic independent user',
+      'A2': 'Elementary - Basic user',
+      'A1': 'Beginner - Very basic language use'
+    };
+    return descriptions[level as keyof typeof descriptions] || level;
+  };
+
+  // Determine colors and labels based on assessment type
+  let gradeColor, gradeLabel, displayScore;
+  
+  if (isNewCEFRAssessment) {
+    gradeColor = getCEFRColor(assessment.overall_cefr_level!);
+    gradeLabel = assessment.overall_cefr_level!;
+    displayScore = getCEFRDescription(assessment.overall_cefr_level!);
+  } else {
+    // Legacy assessment
     const scores = assessment.assessment_scores;
-    if (!scores || typeof scores !== 'object') return 0;
-    
-    const competencyScores = [
-      scores.clarity_articulation || 0,
-      scores.pace || 0,
-      scores.tone_modulation || 0,
-      scores.accent_neutrality || 0,
-      scores.confidence_energy || 0,
-      scores.grammar_fluency || 0
-    ];
-
-    return Math.round(competencyScores.reduce((sum, score) => sum + score, 0) / competencyScores.length * 10) / 10;
-  };
-
-  const getGradeColor = (score: number) => {
-    if (score >= 4) return '#10B981'; // Green
-    if (score >= 3) return '#F59E0B'; // Amber
-    return '#EF4444'; // Red
-  };
-
-  const getGradeLabel = (score: number) => {
-    if (score >= 4) return 'Green';
-    if (score >= 3) return 'Amber';
-    return 'Red';
-  };
-
-  const competencyLabels = {
-    clarity_articulation: 'Clarity & Articulation',
-    pace: 'Pace',
-    tone_modulation: 'Tone & Modulation',
-    accent_neutrality: 'Accent Neutrality',
-    confidence_energy: 'Confidence & Energy',
-    grammar_fluency: 'Grammar & Fluency'
-  };
-
-  const overallScore = getOverallScore();
-  const gradeColor = getGradeColor(overallScore);
-  const gradeLabel = getGradeLabel(overallScore);
+    if (scores && typeof scores === 'object' && scores.clarity_articulation) {
+      const competencyScores = [
+        scores.clarity_articulation || 0,
+        scores.pace || 0,
+        scores.tone_modulation || 0,
+        scores.accent_neutrality || 0,
+        scores.confidence_energy || 0,
+        scores.grammar_fluency || 0
+      ];
+      const overallScore = Math.round(competencyScores.reduce((sum, score) => sum + score, 0) / competencyScores.length * 10) / 10;
+      gradeColor = overallScore >= 4 ? '#10B981' : overallScore >= 3 ? '#F59E0B' : '#EF4444';
+      gradeLabel = overallScore >= 4 ? 'Green' : overallScore >= 3 ? 'Amber' : 'Red';
+      displayScore = `${overallScore}/5.0`;
+    } else {
+      gradeColor = '#6B7280';
+      gradeLabel = 'N/A';
+      displayScore = 'No Score';
+    }
+  }
 
   return `
     <div style="width: 794px; min-height: 1123px; background: white; position: relative; box-sizing: border-box; font-family: Arial, sans-serif;">
@@ -112,14 +130,16 @@ function generatePDFContent(assessment: Assessment): string {
         <div style="display: flex; align-items: center; justify-content: space-between;">
           <div>
             <h1 style="margin: 0; font-size: 36px; font-weight: 700; letter-spacing: -0.5px; color: white;">MediaMint</h1>
-            <p style="margin: 8px 0 0 0; font-size: 16px; opacity: 0.9; font-weight: 400;">Voice Assessment Report</p>
+            <p style="margin: 8px 0 0 0; font-size: 16px; opacity: 0.9; font-weight: 400;">
+              Voice Assessment Report ${isNewCEFRAssessment ? '(CEFR Framework)' : '(Legacy)'}
+            </p>
             <div style="width: 60px; height: 3px; background: rgba(255,255,255,0.6); margin-top: 12px; border-radius: 2px;"></div>
           </div>
           <div style="text-align: right;">
             <div style="background: ${gradeColor}; color: white; padding: 12px 24px; border-radius: 25px; font-weight: 700; font-size: 16px; display: flex; align-items: center; justify-content: center; min-height: 20px;">
-              ${gradeLabel} Grade
+              ${gradeLabel}
             </div>
-            <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.8; font-weight: 500;">Overall Score: ${overallScore}/5.0</p>
+            <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.8; font-weight: 500;">${displayScore}</p>
           </div>
         </div>
       </div>
@@ -189,129 +209,148 @@ function generatePDFContent(assessment: Assessment): string {
           </div>
         ` : ''}
 
-        <!-- Overall Assessment Card -->
-        <div style="text-align: center; margin-bottom: 40px;">
-          <h2 style="margin: 0 0 30px 0; font-size: 24px; font-weight: 600; color: #111827;">Overall Assessment</h2>
-          <div style="display: inline-block; background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); padding: 35px 45px; border-radius: 20px; border: 2px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.08); position: relative; overflow: hidden;">
-            <div style="position: absolute; top: -20px; left: -20px; width: 80px; height: 80px; background: ${gradeColor}; opacity: 0.1; border-radius: 50%;"></div>
-            <div style="display: flex; align-items: center; justify-content: center; gap: 25px; position: relative; z-index: 2;">
+        ${isNewCEFRAssessment ? `
+          <!-- CEFR Assessment Result -->
+          <div style="text-align: center; margin-bottom: 40px;">
+            <h2 style="margin: 0 0 30px 0; font-size: 24px; font-weight: 600; color: #111827;">CEFR Assessment Result</h2>
+            <div style="display: inline-block; background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); padding: 35px 45px; border-radius: 20px; border: 2px solid ${gradeColor}; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
               <div style="text-align: center;">
-                <div style="font-size: 64px; font-weight: 700; color: #111827; line-height: 1; margin-bottom: 8px;">${overallScore}</div>
-                <div style="font-size: 14px; color: #6b7280; font-weight: 500;">Out of 5.0</div>
-              </div>
-              <div style="width: 40px; height: 40px; border-radius: 50%; background: ${gradeColor}; box-shadow: 0 3px 10px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
-                <div style="width: 20px; height: 20px; background: white; border-radius: 50%; opacity: 0.3;"></div>
-              </div>
-              <div style="text-align: center;">
-                <div style="font-size: 22px; font-weight: 600; color: #111827; margin-bottom: 4px;">Grade</div>
-                <div style="font-size: 18px; font-weight: 700; color: ${gradeColor};">${gradeLabel}</div>
+                <div style="font-size: 64px; font-weight: 700; color: ${gradeColor}; line-height: 1; margin-bottom: 8px;">${assessment.overall_cefr_level}</div>
+                <div style="font-size: 16px; color: #6b7280; font-weight: 500;">${getCEFRDescription(assessment.overall_cefr_level!)}</div>
               </div>
             </div>
           </div>
-        </div>
+        ` : `
+          <!-- Legacy Assessment Result -->
+          <div style="text-align: center; margin-bottom: 40px;">
+            <h2 style="margin: 0 0 30px 0; font-size: 24px; font-weight: 600; color: #111827;">Overall Assessment (Legacy)</h2>
+            <div style="display: inline-block; background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); padding: 35px 45px; border-radius: 20px; border: 2px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+              <div style="text-align: center;">
+                <div style="font-size: 48px; font-weight: 700; color: #111827; line-height: 1; margin-bottom: 8px;">${displayScore}</div>
+                <div style="font-size: 16px; color: #6b7280; font-weight: 500;">Competency-based Assessment</div>
+              </div>
+            </div>
+          </div>
+        `}
 
-        <!-- Competency Breakdown -->
-        <div style="margin-bottom: 40px;">
-          <h2 style="margin: 0 0 30px 0; font-size: 22px; font-weight: 600; color: #111827; text-align: center;">Competency Breakdown</h2>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
-            ${Object.entries(competencyLabels).map(([key, label]) => {
-              const score = assessment.assessment_scores[key] || 0;
-              const feedback = assessment.assessment_scores?.feedback?.[key] || '';
-              const scoreColor = getGradeColor(score);
-              
-              return `
-                <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
-                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; position: relative; z-index: 2;">
-                    <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #111827;">${label}</h3>
-                    <div style="font-size: 18px; font-weight: 700; color: ${scoreColor};">
-                      ${score}/5
+        ${isNewCEFRAssessment ? `
+          <!-- CEFR Assessment Details -->
+          ${assessment.detailed_analysis ? `
+            <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; border-radius: 12px; padding: 30px; margin-bottom: 35px;">
+              <h2 style="margin: 0 0 18px 0; font-size: 20px; font-weight: 600; color: #1991bd;">Detailed Analysis</h2>
+              <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #1991bd; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <p style="margin: 0; color: #374151; line-height: 1.7; font-size: 15px;">${assessment.detailed_analysis}</p>
+              </div>
+            </div>
+          ` : ''}
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 35px;">
+            ${assessment.specific_strengths ? `
+              <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0; border-radius: 12px; padding: 25px;">
+                <h3 style="margin: 0 0 15px 0; font-size: 18px; font-weight: 600; color: #166534;">Specific Strengths</h3>
+                <p style="margin: 0; color: #15803d; line-height: 1.6; font-size: 14px;">${assessment.specific_strengths}</p>
+              </div>
+            ` : ''}
+
+            ${assessment.areas_for_improvement ? `
+              <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1px solid #fed7aa; border-radius: 12px; padding: 25px;">
+                <h3 style="margin: 0 0 15px 0; font-size: 18px; font-weight: 600; color: #92400e;">Areas for Improvement</h3>
+                <p style="margin: 0; color: #d97706; line-height: 1.6; font-size: 14px;">${assessment.areas_for_improvement}</p>
+              </div>
+            ` : ''}
+          </div>
+
+          ${assessment.score_justification ? `
+            <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 30px; margin-bottom: 35px;">
+              <h2 style="margin: 0 0 18px 0; font-size: 20px; font-weight: 600; color: #111827;">Score Justification</h2>
+              <p style="margin: 0; color: #374151; line-height: 1.7; font-size: 15px;">${assessment.score_justification}</p>
+            </div>
+          ` : ''}
+        ` : `
+          <!-- Legacy Assessment Details -->
+          <div style="margin-bottom: 40px;">
+            <h2 style="margin: 0 0 30px 0; font-size: 22px; font-weight: 600; color: #111827; text-align: center;">Competency Breakdown (Legacy)</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+              ${Object.entries({
+                clarity_articulation: 'Clarity & Articulation',
+                pace: 'Pace',
+                tone_modulation: 'Tone & Modulation',
+                accent_neutrality: 'Accent Neutrality',
+                confidence_energy: 'Confidence & Energy',
+                grammar_fluency: 'Grammar & Fluency'
+              }).map(([key, label]) => {
+                const score = assessment.assessment_scores?.[key] || 0;
+                const feedback = assessment.assessment_scores?.feedback?.[key] || '';
+                const scoreColor = score >= 4 ? '#10B981' : score >= 3 ? '#F59E0B' : '#EF4444';
+                
+                return `
+                  <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                      <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #111827;">${label}</h3>
+                      <div style="font-size: 18px; font-weight: 700; color: ${scoreColor};">
+                        ${score}/5
+                      </div>
                     </div>
+                    ${feedback ? `
+                      <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.5; padding: 10px 12px; border-left: 3px solid ${scoreColor};">
+                        ${feedback}
+                      </p>
+                    ` : ''}
                   </div>
-                  ${feedback ? `
-                    <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.5; padding-left: 12px; border-left: 3px solid ${scoreColor}; padding: 10px 12px; margin-top: 8px;">
-                      ${feedback}
-                    </p>
-                  ` : ''}
-                </div>
-              `;
-            }).join('')}
+                `;
+              }).join('')}
+            </div>
           </div>
-        </div>
 
-        <!-- AI Feedback Section -->
-        ${assessment.ai_feedback && assessment.ai_feedback.trim() ? `
-          <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; border-radius: 12px; padding: 30px; margin-bottom: 40px; position: relative; overflow: hidden;">
-            <h2 style="margin: 0 0 18px 0; font-size: 20px; font-weight: 600; color: #1991bd;">Overall Assessment Feedback</h2>
-            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #1991bd; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-              <p style="margin: 0; color: #374151; line-height: 1.7; font-size: 15px;">${assessment.ai_feedback.trim()}</p>
+          ${assessment.ai_feedback && assessment.ai_feedback.trim() ? `
+            <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; border-radius: 12px; padding: 30px; margin-bottom: 40px;">
+              <h2 style="margin: 0 0 18px 0; font-size: 20px; font-weight: 600; color: #1991bd;">Overall Assessment Feedback</h2>
+              <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #1991bd; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <p style="margin: 0; color: #374151; line-height: 1.7; font-size: 15px;">${assessment.ai_feedback.trim()}</p>
+              </div>
             </div>
-          </div>
-        ` : ''}
+          ` : ''}
+        `}
 
-        <!-- Performance Summary -->
-        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 30px; margin-bottom: 35px;">
-          <h2 style="margin: 0 0 25px 0; font-size: 20px; font-weight: 600; color: #111827; text-align: center;">Performance Summary</h2>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center;">
-            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-              <div style="font-size: 24px; font-weight: 700; color: #10b981; margin-bottom: 4px;">
-                ${[
-                  assessment.assessment_scores?.clarity_articulation || 0,
-                  assessment.assessment_scores?.pace || 0,
-                  assessment.assessment_scores?.tone_modulation || 0,
-                  assessment.assessment_scores?.accent_neutrality || 0,
-                  assessment.assessment_scores?.confidence_energy || 0,
-                  assessment.assessment_scores?.grammar_fluency || 0
-                ].filter(score => score >= 4).length}
+        ${isNewCEFRAssessment ? `
+          <!-- CEFR Scoring Guide -->
+          <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 12px; padding: 25px; margin-bottom: 35px;">
+            <h3 style="margin: 0 0 20px 0; font-size: 16px; font-weight: 600; color: #92400e; text-align: center;">CEFR Proficiency Levels</h3>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+              <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; border: 1px solid #bbf7d0;">
+                <div style="font-weight: 600; color: #16a34a; margin-bottom: 4px;">C2-C1</div>
+                <div style="font-size: 11px; color: #14532d;">Advanced/Mastery</div>
               </div>
-              <div style="font-size: 12px; color: #6b7280; font-weight: 500;">Green Scores</div>
-            </div>
-            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-              <div style="font-size: 24px; font-weight: 700; color: #f59e0b; margin-bottom: 4px;">
-                ${[
-                  assessment.assessment_scores?.clarity_articulation || 0,
-                  assessment.assessment_scores?.pace || 0,
-                  assessment.assessment_scores?.tone_modulation || 0,
-                  assessment.assessment_scores?.accent_neutrality || 0,
-                  assessment.assessment_scores?.confidence_energy || 0,
-                  assessment.assessment_scores?.grammar_fluency || 0
-                ].filter(score => score >= 3 && score < 4).length}
+              <div style="background: #fefce8; padding: 15px; border-radius: 8px; border: 1px solid #fde68a;">
+                <div style="font-weight: 600; color: #d97706; margin-bottom: 4px;">B2-B1</div>
+                <div style="font-size: 11px; color: #92400e;">Independent User</div>
               </div>
-              <div style="font-size: 12px; color: #6b7280; font-weight: 500;">Amber Scores</div>
-            </div>
-            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-              <div style="font-size: 24px; font-weight: 700; color: #ef4444; margin-bottom: 4px;">
-                ${[
-                  assessment.assessment_scores?.clarity_articulation || 0,
-                  assessment.assessment_scores?.pace || 0,
-                  assessment.assessment_scores?.tone_modulation || 0,
-                  assessment.assessment_scores?.accent_neutrality || 0,
-                  assessment.assessment_scores?.confidence_energy || 0,
-                  assessment.assessment_scores?.grammar_fluency || 0
-                ].filter(score => score < 3).length}
+              <div style="background: #fef2f2; padding: 15px; border-radius: 8px; border: 1px solid #fecaca;">
+                <div style="font-weight: 600; color: #dc2626; margin-bottom: 4px;">A2-A1</div>
+                <div style="font-size: 11px; color: #7f1d1d;">Basic User</div>
               </div>
-              <div style="font-size: 12px; color: #6b7280; font-weight: 500;">Red Scores</div>
             </div>
           </div>
-        </div>
-
-        <!-- Scoring Guide -->
-        <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 12px; padding: 25px; margin-bottom: 35px;">
-          <h3 style="margin: 0 0 20px 0; font-size: 16px; font-weight: 600; color: #92400e; text-align: center;">Scoring Guide</h3>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
-            <div style="background: #fef2f2; padding: 15px; border-radius: 8px; border: 1px solid #fecaca;">
-              <div style="font-weight: 600; color: #dc2626; margin-bottom: 4px;">Red (1-2.9)</div>
-              <div style="font-size: 11px; color: #7f1d1d;">Needs Improvement</div>
-            </div>
-            <div style="background: #fefce8; padding: 15px; border-radius: 8px; border: 1px solid #fde68a;">
-              <div style="font-weight: 600; color: #d97706; margin-bottom: 4px;">Amber (3-3.9)</div>
-              <div style="font-size: 11px; color: #92400e;">Good Performance</div>
-            </div>
-            <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; border: 1px solid #bbf7d0;">
-              <div style="font-weight: 600; color: #16a34a; margin-bottom: 4px;">Green (4-5)</div>
-              <div style="font-size: 11px; color: #14532d;">Excellent</div>
+        ` : `
+          <!-- Legacy Scoring Guide -->
+          <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 12px; padding: 25px; margin-bottom: 35px;">
+            <h3 style="margin: 0 0 20px 0; font-size: 16px; font-weight: 600; color: #92400e; text-align: center;">Legacy Scoring Guide</h3>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+              <div style="background: #fef2f2; padding: 15px; border-radius: 8px; border: 1px solid #fecaca;">
+                <div style="font-weight: 600; color: #dc2626; margin-bottom: 4px;">Red (1-2.9)</div>
+                <div style="font-size: 11px; color: #7f1d1d;">Needs Improvement</div>
+              </div>
+              <div style="background: #fefce8; padding: 15px; border-radius: 8px; border: 1px solid #fde68a;">
+                <div style="font-weight: 600; color: #d97706; margin-bottom: 4px;">Amber (3-3.9)</div>
+                <div style="font-size: 11px; color: #92400e;">Good Performance</div>
+              </div>
+              <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; border: 1px solid #bbf7d0;">
+                <div style="font-weight: 600; color: #16a34a; margin-bottom: 4px;">Green (4-5)</div>
+                <div style="font-size: 11px; color: #14532d;">Excellent</div>
+              </div>
             </div>
           </div>
-        </div>
+        `}
       </div>
 
       <!-- Footer -->
@@ -319,7 +358,9 @@ function generatePDFContent(assessment: Assessment): string {
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div>
             <p style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #1991bd;">MediaMint Voice Assessment Tool</p>
-            <p style="margin: 0 0 2px 0; font-size: 12px; color: #6b7280;">AI-powered communications evaluation platform</p>
+            <p style="margin: 0 0 2px 0; font-size: 12px; color: #6b7280;">
+              AI-powered communications evaluation platform ${isNewCEFRAssessment ? '(CEFR Framework)' : '(Legacy System)'}
+            </p>
             <p style="margin: 0; font-size: 10px; color: #9ca3af; font-style: italic;">Evaluated and generated by AI</p>
           </div>
           <div style="text-align: right;">

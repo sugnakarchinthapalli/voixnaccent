@@ -5,21 +5,21 @@ export function exportToCSV(assessments: Assessment[], filename: string = 'voice
     'Candidate Name',
     'Email',
     'Assessment Date',
+    'Assessment Type',
+    'CEFR Level',
     'Overall Grade',
-    'Overall Score',
-    'Clarity & Articulation',
-    'Pace',
-    'Tone & Modulation',
-    'Accent Neutrality',
-    'Confidence & Energy',
-    'Grammar & Fluency',
+    'Legacy Score',
+    'Detailed Analysis',
+    'Specific Strengths',
+    'Areas for Improvement',
+    'Score Justification',
     'Assessed By',
     'Audio Source',
-    'AI Feedback'
+    'Legacy Feedback'
   ];
 
-  const getOverallScore = (scores: any) => {
-    if (!scores || typeof scores !== 'object') return '0';
+  const getLegacyOverallScore = (scores: any) => {
+    if (!scores || typeof scores !== 'object' || !scores.clarity_articulation) return '';
     
     const competencyScores = [
       scores.clarity_articulation || 0,
@@ -43,17 +43,17 @@ export function exportToCSV(assessments: Assessment[], filename: string = 'voice
       hour: '2-digit',
       minute: '2-digit'
     }),
+    assessment.overall_cefr_level ? 'CEFR Assessment' : 'Legacy Assessment',
+    assessment.overall_cefr_level || '',
     assessment.overall_grade || '',
-    getOverallScore(assessment.assessment_scores),
-    assessment.assessment_scores?.clarity_articulation || '',
-    assessment.assessment_scores?.pace || '',
-    assessment.assessment_scores?.tone_modulation || '',
-    assessment.assessment_scores?.accent_neutrality || '',
-    assessment.assessment_scores?.confidence_energy || '',
-    assessment.assessment_scores?.grammar_fluency || '',
+    getLegacyOverallScore(assessment.assessment_scores),
+    assessment.detailed_analysis?.replace(/"/g, '""') || '',
+    assessment.specific_strengths?.replace(/"/g, '""') || '',
+    assessment.areas_for_improvement?.replace(/"/g, '""') || '',
+    assessment.score_justification?.replace(/"/g, '""') || '',
     assessment.assessed_by,
     assessment.candidate?.audio_source || '',
-    assessment.ai_feedback?.replace(/"/g, '""') || '' // Escape quotes for CSV
+    assessment.ai_feedback?.replace(/"/g, '""') || '' // Legacy feedback
   ]);
 
   const csvContent = [headers, ...rows]

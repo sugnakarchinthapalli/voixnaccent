@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Eye, Calendar, User, Mail, Trash2 } from 'lucide-react';
 import { Assessment } from '../../types';
-import { ScoreBadge } from '../UI/ScoreBadge';
 import { AssessmentDetails } from './AssessmentDetails';
 import { assessmentService } from '../../services/assessmentService';
 import { Button } from '../UI/Button';
@@ -33,6 +32,36 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
     }
     
     return assessedBy;
+  };
+
+  const getCEFRColor = (level: string) => {
+    switch (level) {
+      case 'C2':
+      case 'C1':
+        return 'bg-green-500';
+      case 'B2':
+      case 'B1':
+        return 'bg-yellow-500';
+      case 'A2':
+      case 'A1':
+      default:
+        return 'bg-red-500';
+    }
+  };
+
+  const getGradeFromCEFR = (level: string) => {
+    switch (level) {
+      case 'C2':
+      case 'C1':
+        return 'Green';
+      case 'B2':
+      case 'B1':
+        return 'Amber';
+      case 'A2':
+      case 'A1':
+      default:
+        return 'Red';
+    }
   };
 
   const handleSort = (field: keyof Assessment) => {
@@ -83,18 +112,19 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
   );
 
   const getOverallScore = (scores: any) => {
-    if (!scores || typeof scores !== 'object') return 0;
-    
-    const competencyScores = [
-      scores.clarity_articulation || 0,
-      scores.pace || 0,
-      scores.tone_modulation || 0,
-      scores.accent_neutrality || 0,
-      scores.confidence_energy || 0,
-      scores.grammar_fluency || 0
-    ];
-
-    return Math.round(competencyScores.reduce((sum, score) => sum + score, 0) / competencyScores.length * 10) / 10;
+    // For legacy assessments with old scoring system
+    if (scores && typeof scores === 'object' && scores.clarity_articulation) {
+      const competencyScores = [
+        scores.clarity_articulation || 0,
+        scores.pace || 0,
+        scores.tone_modulation || 0,
+        scores.accent_neutrality || 0,
+        scores.confidence_energy || 0,
+        scores.grammar_fluency || 0
+      ];
+      return Math.round(competencyScores.reduce((sum, score) => sum + score, 0) / competencyScores.length * 10) / 10;
+    }
+    return 0;
   };
 
   const handleDeleteAssessment = async (assessmentId: string, candidateName: string) => {
@@ -144,9 +174,9 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
               <tr>
                 <SortableHeader field="candidate">Candidate</SortableHeader>
                 <SortableHeader field="assessment_date">Date Assessed</SortableHeader>
-                <SortableHeader field="overall_grade">Overall Grade</SortableHeader>
+                <SortableHeader field="overall_grade">Assessment Result</SortableHeader>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Competency Scores
+                  Details
                 </th>
                 <SortableHeader field="assessed_by">Assessed By</SortableHeader>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -186,58 +216,58 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-2">
-                      {assessment.overall_grade && (
-                        <div className={`w-3 h-3 rounded-full ${
-                          getOverallScore(assessment.assessment_scores) >= 4 
-                            ? 'bg-green-500' 
-                            : getOverallScore(assessment.assessment_scores) >= 3 
-                            ? 'bg-yellow-500' 
-                            : 'bg-red-500'
-                        }`} title={`Grade: ${assessment.overall_grade}`}></div>
-                      )}
-                      <span className="text-sm font-medium text-gray-700">
-                        {getOverallScore(assessment.assessment_scores)}
-                      </span>
-                    </div>
+                    {assessment.overall_cefr_level ? (
+                      // New CEFR Assessment
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-3 h-3 rounded-full ${getCEFRColor(assessment.overall_cefr_level)}`} 
+                             title={`CEFR Level: ${assessment.overall_cefr_level}`}></div>
+                        <span className="text-sm font-bold text-gray-900">
+                          {assessment.overall_cefr_level}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          ({getGradeFromCEFR(assessment.overall_cefr_level)})
+                        </span>
+                      </div>
+                    ) : (
+                      // Legacy Assessment
+                      <div className="flex items-center space-x-2">
+                        {assessment.overall_grade && (
+                          <div className={`w-3 h-3 rounded-full ${
+                            getOverallScore(assessment.assessment_scores) >= 4 
+                              ? 'bg-green-500' 
+                              : getOverallScore(assessment.assessment_scores) >= 3 
+                              ? 'bg-yellow-500' 
+                              : 'bg-red-500'
+                          }`} title={`Grade: ${assessment.overall_grade}`}></div>
+                        )}
+                        <span className="text-sm font-medium text-gray-700">
+                          {getOverallScore(assessment.assessment_scores)}
+                        </span>
+                        <span className="text-xs text-gray-500">(Legacy)</span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {assessment.assessment_scores && typeof assessment.assessment_scores === 'object' && (
-                        <>
-                          <ScoreBadge 
-                            score={assessment.assessment_scores.clarity_articulation || 0}
-                            competency="C"
-                            showScore={true}
-                          />
-                          <ScoreBadge 
-                            score={assessment.assessment_scores.pace || 0}
-                            competency="P"
-                            showScore={true}
-                          />
-                          <ScoreBadge 
-                            score={assessment.assessment_scores.tone_modulation || 0}
-                            competency="T"
-                            showScore={true}
-                          />
-                          <ScoreBadge 
-                            score={assessment.assessment_scores.accent_neutrality || 0}
-                            competency="A"
-                            showScore={true}
-                          />
-                          <ScoreBadge 
-                            score={assessment.assessment_scores.confidence_energy || 0}
-                            competency="E"
-                            showScore={true}
-                          />
-                          <ScoreBadge 
-                            score={assessment.assessment_scores.grammar_fluency || 0}
-                            competency="G"
-                            showScore={true}
-                          />
-                        </>
-                      )}
-                    </div>
+                    {assessment.overall_cefr_level ? (
+                      // New CEFR Assessment - Show key strengths/areas
+                      <div className="text-xs text-gray-600">
+                        {assessment.specific_strengths && (
+                          <div className="mb-1">
+                            <span className="font-medium text-green-700">Strengths:</span> {assessment.specific_strengths.substring(0, 50)}...
+                          </div>
+                        )}
+                        {assessment.areas_for_improvement && (
+                          <div>
+                            <span className="font-medium text-orange-700">Areas:</span> {assessment.areas_for_improvement.substring(0, 50)}...
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      // Legacy Assessment - Show old competency scores
+                      <div className="text-xs text-gray-500">
+                        Legacy competency-based assessment
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
