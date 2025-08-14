@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { Candidate, Assessment, QueueItem, CompetencyScores } from '../types';
-import { assessAudioWithCEFR, mapCEFRToGrade, type CEFRAssessmentResult } from './geminiService';
+import { assessAudioWithCEFR, mapCEFRToGrade } from './geminiService';
+import type { CEFRAssessmentResult } from './geminiService';
 import { storageService } from './storageService';
 
 const MAX_CONCURRENT_ASSESSMENTS = 2;

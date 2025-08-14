@@ -57,6 +57,8 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
     throw new Error('Gemini API key not configured');
   }
 
+  console.log('🚀 Starting CEFR assessment for audio URL:', audioUrl);
+
   return await retryWithBackoff(async () => {
     try {
       console.log(`Starting assessment for audio URL: ${audioUrl}`);
@@ -160,7 +162,14 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
         throw new Error(`Invalid CEFR level: ${assessmentResult.overall_cefr_level}`);
       }
 
-      console.log('CEFR assessment completed successfully');
+      console.log('✅ CEFR assessment completed successfully:', {
+        level: assessmentResult.overall_cefr_level,
+        hasAnalysis: !!assessmentResult.detailed_analysis,
+        hasStrengths: !!assessmentResult.specific_strengths,
+        hasImprovements: !!assessmentResult.areas_for_improvement,
+        hasJustification: !!assessmentResult.score_justification
+      });
+      
       return assessmentResult;
       
     } catch (error) {
@@ -305,6 +314,7 @@ function extractVocarooId(url: string): string | null {
   
   return null;
 }
+
 async function fetchAudioDirectly(audioUrl: string): Promise<{ audioBase64: string; mimeType: string }> {
   try {
     console.log(`Fetching audio directly from: ${audioUrl}`);
