@@ -17,6 +17,7 @@ export function Dashboard() {
   const [filters, setFilters] = useState({
     assessedBy: '',
     overallGrade: '',
+    framework: '',
     dateFrom: getFirstDayOfCurrentMonth(),
     dateTo: getLastDayOfCurrentMonth()
   });
@@ -119,6 +120,7 @@ export function Dashboard() {
     setFilters({
       assessedBy: '',
       overallGrade: '',
+      framework: '',
       dateFrom: getFirstDayOfCurrentMonth(),
       dateTo: getLastDayOfCurrentMonth()
     });
@@ -207,6 +209,21 @@ export function Dashboard() {
                   {getUniqueAssessors().map(assessor => (
                     <option key={assessor} value={assessor}>{assessor}</option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Framework
+                </label>
+                <select
+                  value={filters.framework}
+                  onChange={(e) => setFilters(prev => ({ ...prev, framework: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">All Frameworks</option>
+                  <option value="CEFR">CEFR</option>
+                  <option value="Competency">Competency</option>
                 </select>
               </div>
 

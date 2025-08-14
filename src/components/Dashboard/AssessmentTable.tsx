@@ -175,9 +175,7 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                 <SortableHeader field="candidate">Candidate</SortableHeader>
                 <SortableHeader field="assessment_date">Date Assessed</SortableHeader>
                 <SortableHeader field="overall_grade">Assessment Result</SortableHeader>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Details
-                </th>
+                <SortableHeader field="overall_cefr_level">Framework</SortableHeader>
                 <SortableHeader field="assessed_by">Assessed By</SortableHeader>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -218,19 +216,16 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                   <td className="px-6 py-4 whitespace-nowrap">
                     {assessment.overall_cefr_level ? (
                       // CEFR Assessment
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-center">
                         <div className={`w-3 h-3 rounded-full ${getCEFRColor(assessment.overall_cefr_level)}`} 
                              title={`CEFR Level: ${assessment.overall_cefr_level}`}></div>
-                        <span className="text-sm font-bold text-gray-900">
+                        <span className="text-sm font-bold text-gray-900 ml-2">
                           {assessment.overall_cefr_level}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          ({getGradeFromCEFR(assessment.overall_cefr_level)})
                         </span>
                       </div>
                     ) : (
                       // Legacy Competency Assessment
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-center">
                         {assessment.overall_grade && (
                           <div className={`w-3 h-3 rounded-full ${
                             getOverallScore(assessment.assessment_scores) >= 4 
@@ -240,33 +235,17 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                               : 'bg-red-500'
                           }`} title={`Grade: ${assessment.overall_grade}`}></div>
                         )}
-                        <span className="text-sm font-medium text-gray-700">
+                        <span className="text-sm font-medium text-gray-700 ml-2">
                           {getOverallScore(assessment.assessment_scores)}
                         </span>
-                        <span className="text-xs text-gray-500">(Competency)</span>
                       </div>
                     )}
                   </td>
                   <td className="px-6 py-4">
                     {assessment.overall_cefr_level ? (
-                      // CEFR Assessment - Show key insights
-                      <div className="text-xs text-gray-600">
-                        {assessment.specific_strengths && (
-                          <div className="mb-1">
-                            <span className="font-medium text-green-700">Strengths:</span> {assessment.specific_strengths.substring(0, 50)}...
-                          </div>
-                        )}
-                        {assessment.areas_for_improvement && (
-                          <div>
-                            <span className="font-medium text-orange-700">Areas:</span> {assessment.areas_for_improvement.substring(0, 50)}...
-                          </div>
-                        )}
-                      </div>
+                      <span className="text-sm font-medium text-blue-700">CEFR</span>
                     ) : (
-                      // Legacy Competency Assessment
-                      <div className="text-xs text-gray-500">
-                        Competency-based assessment (legacy)
-                      </div>
+                      <span className="text-sm font-medium text-orange-700">Competency</span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
