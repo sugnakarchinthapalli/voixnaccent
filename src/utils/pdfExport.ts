@@ -215,22 +215,20 @@ function generatePDFContent(assessment: Assessment): string {
           <h2 style="margin: 0 0 30px 0; font-size: 22px; font-weight: 600; color: #111827; text-align: center;">Competency Breakdown</h2>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
             ${Object.entries(competencyLabels).map(([key, label]) => {
-              const score = assessment.assessment_scores?.[key as keyof typeof competencyLabels] || 0;
-              const feedback = assessment.assessment_scores?.feedback?.[key as keyof typeof competencyLabels] || '';
+              const score = assessment.assessment_scores[key] || 0;
+              const feedback = assessment.assessment_scores?.feedback?.[key] || '';
               const scoreColor = getGradeColor(score);
-              const scoreBg = score >= 4 ? '#ecfdf5' : score >= 3 ? '#fefce8' : '#fef2f2';
               
               return `
                 <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
-                  <div style="position: absolute; top: 0; right: 0; width: 40px; height: 40px; background: ${scoreBg}; opacity: 0.5; border-radius: 0 12px 0 40px;"></div>
                   <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; position: relative; z-index: 2;">
                     <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #111827;">${label}</h3>
-                    <div style="background: ${scoreColor}; color: white; padding: 8px 14px; border-radius: 15px; font-size: 14px; font-weight: 700; min-width: 50px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+                    <div style="font-size: 18px; font-weight: 700; color: ${scoreColor};">
                       ${score}/5
                     </div>
                   </div>
                   ${feedback ? `
-                    <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.6; position: relative; z-index: 2; padding: 12px 15px; border-left: 3px solid ${scoreColor}; background: ${scoreBg}; border-radius: 6px; margin-top: 10px;">
+                    <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.5; padding-left: 12px; border-left: 3px solid ${scoreColor}; padding: 10px 12px; margin-top: 8px;">
                       ${feedback}
                     </p>
                   ` : ''}
@@ -241,13 +239,11 @@ function generatePDFContent(assessment: Assessment): string {
         </div>
 
         <!-- AI Feedback Section -->
-        ${assessment.ai_feedback ? `
+        ${assessment.ai_feedback && assessment.ai_feedback.trim() ? `
           <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; border-radius: 12px; padding: 30px; margin-bottom: 40px; position: relative; overflow: hidden;">
-            <div style="position: absolute; top: -15px; right: -15px; width: 80px; height: 80px; background: rgba(25, 145, 189, 0.1); border-radius: 50%;"></div>
-            <div style="position: absolute; bottom: -10px; left: -10px; width: 60px; height: 60px; background: rgba(25, 145, 189, 0.08); border-radius: 50%;"></div>
-            <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 600; color: #1991bd; position: relative; z-index: 2;">Overall Assessment Feedback</h2>
-            <div style="background: white; padding: 25px; border-radius: 8px; border-left: 4px solid #1991bd; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; z-index: 2;">
-              <p style="margin: 0; color: #374151; line-height: 1.7; font-size: 15px;">${assessment.ai_feedback}</p>
+            <h2 style="margin: 0 0 18px 0; font-size: 20px; font-weight: 600; color: #1991bd;">Overall Assessment Feedback</h2>
+            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #1991bd; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+              <p style="margin: 0; color: #374151; line-height: 1.7; font-size: 15px;">${assessment.ai_feedback.trim()}</p>
             </div>
           </div>
         ` : ''}
@@ -258,19 +254,40 @@ function generatePDFContent(assessment: Assessment): string {
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center;">
             <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <div style="font-size: 24px; font-weight: 700; color: #10b981; margin-bottom: 4px;">
-                ${Object.values(assessment.assessment_scores || {}).filter((score: any) => typeof score === 'number' && score >= 4).length}
+                ${[
+                  assessment.assessment_scores?.clarity_articulation || 0,
+                  assessment.assessment_scores?.pace || 0,
+                  assessment.assessment_scores?.tone_modulation || 0,
+                  assessment.assessment_scores?.accent_neutrality || 0,
+                  assessment.assessment_scores?.confidence_energy || 0,
+                  assessment.assessment_scores?.grammar_fluency || 0
+                ].filter(score => score >= 4).length}
               </div>
               <div style="font-size: 12px; color: #6b7280; font-weight: 500;">Green Scores</div>
             </div>
             <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <div style="font-size: 24px; font-weight: 700; color: #f59e0b; margin-bottom: 4px;">
-                ${Object.values(assessment.assessment_scores || {}).filter((score: any) => typeof score === 'number' && score >= 3 && score < 4).length}
+                ${[
+                  assessment.assessment_scores?.clarity_articulation || 0,
+                  assessment.assessment_scores?.pace || 0,
+                  assessment.assessment_scores?.tone_modulation || 0,
+                  assessment.assessment_scores?.accent_neutrality || 0,
+                  assessment.assessment_scores?.confidence_energy || 0,
+                  assessment.assessment_scores?.grammar_fluency || 0
+                ].filter(score => score >= 3 && score < 4).length}
               </div>
               <div style="font-size: 12px; color: #6b7280; font-weight: 500;">Amber Scores</div>
             </div>
             <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <div style="font-size: 24px; font-weight: 700; color: #ef4444; margin-bottom: 4px;">
-                ${Object.values(assessment.assessment_scores || {}).filter((score: any) => typeof score === 'number' && score < 3).length}
+                ${[
+                  assessment.assessment_scores?.clarity_articulation || 0,
+                  assessment.assessment_scores?.pace || 0,
+                  assessment.assessment_scores?.tone_modulation || 0,
+                  assessment.assessment_scores?.accent_neutrality || 0,
+                  assessment.assessment_scores?.confidence_energy || 0,
+                  assessment.assessment_scores?.grammar_fluency || 0
+                ].filter(score => score < 3).length}
               </div>
               <div style="font-size: 12px; color: #6b7280; font-weight: 500;">Red Scores</div>
             </div>
