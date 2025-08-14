@@ -351,6 +351,22 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+export function mapCEFRToGrade(cefrLevel: string): 'Red' | 'Amber' | 'Green' {
+  switch (cefrLevel) {
+    case 'C2':
+    case 'C1':
+      return 'Green';
+    case 'B2':
+    case 'B1':
+      return 'Amber';
+    case 'A2':
+    case 'A1':
+    default:
+      return 'Red';
+  }
+}
+
+// Keep the old function for backward compatibility with existing assessments
 export function calculateOverallGrade(scores: Record<string, any>): 'Red' | 'Amber' | 'Green' {
   const competencyScores = [
     scores.clarity_articulation?.score || 0,

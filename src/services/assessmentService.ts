@@ -211,30 +211,11 @@ export class AssessmentService {
       // Process audio URL
       const audioUrl = candidate.audio_source;
 
-      // Assess with Gemini
-      const assessmentResult = await assessAudioWithGemini(audioUrl);
+      // Assess with CEFR framework using Gemini
+      const cefrResult = await assessAudioWithCEFR(audioUrl);
       
-      // Calculate overall grade
-      const overallGrade = calculateOverallGrade(assessmentResult);
-
-      // Create assessment scores object
-      const assessmentScores: CompetencyScores = {
-        clarity_articulation: assessmentResult.clarity_articulation.score,
-        pace: assessmentResult.pace.score,
-        tone_modulation: assessmentResult.tone_modulation.score,
-        accent_neutrality: assessmentResult.accent_neutrality.score,
-        confidence_energy: assessmentResult.confidence_energy.score,
-        grammar_fluency: assessmentResult.grammar_fluency.score,
-        feedback: {
-          clarity_articulation: assessmentResult.clarity_articulation.feedback,
-          pace: assessmentResult.pace.feedback,
-          tone_modulation: assessmentResult.tone_modulation.feedback,
-          accent_neutrality: assessmentResult.accent_neutrality.feedback,
-          confidence_energy: assessmentResult.confidence_energy.feedback,
-          grammar_fluency: assessmentResult.grammar_fluency.feedback,
-          overall: assessmentResult.overall_feedback
-        }
-      };
+      // Map CEFR level to traditional grade for backward compatibility
+      const overallGrade = mapCEFRToGrade(cefrResult.overall_cefr_level);
 
       // All assessments are now manual
       // Determine who assessed this based on the candidate source
@@ -257,12 +238,18 @@ export class AssessmentService {
         .from('assessments')
         .insert({
           candidate_id: candidate.id,
-          assessment_scores: assessmentScores,
+          assessment_scores: {}, // Empty for CEFR assessments
           overall_grade: overallGrade,
-          ai_feedback: assessmentResult.overall_feedback,
+          ai_feedback: cefrResult.detailed_analysis,
           assessed_by: assessedBy,
           processing_status: 'completed',
-          question_id: queueItem.question_id || null
+          question_id: queueItem.question_id || null,
+          // New CEFR fields
+          overall_cefr_level: cefrResult.overall_cefr_level,
+          detailed_analysis: cefrResult.detailed_analysis,
+          specific_strengths: cefrResult.specific_strengths,
+          areas_for_improvement: cefrResult.areas_for_improvement,
+          score_justification: cefrResult.score_justification
         });
 
       if (assessmentError) throw assessmentError;
@@ -276,7 +263,7 @@ export class AssessmentService {
         })
         .eq('id', queueItem.id);
 
-      console.log(`✅ Assessment completed for: ${candidate.name}`);
+      console.log(`✅ CEFR assessment completed for: ${candidate.name} - Level: ${cefrResult.overall_cefr_level}`);
     } catch (error) {
       console.error('Error processing queue item:', error);
       
