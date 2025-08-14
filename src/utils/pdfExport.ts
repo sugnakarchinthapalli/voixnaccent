@@ -105,16 +105,16 @@ function generatePDFContent(assessment: Assessment): string {
   const gradeLabel = getGradeLabel(overallScore);
 
   return `
-    <div style="width: 210mm; min-height: 297mm; background: white; position: relative; box-sizing: border-box;">
+    <div style="width: 794px; min-height: 1123px; background: white; position: relative; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <!-- Header Section -->
-      <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 25px 30px; margin: 0; position: relative; overflow: hidden;">
+      <div style="background: linear-gradient(135deg, #1991bd 0%, #1991bd 100%); color: white; padding: 30px 40px; margin: 0; position: relative; overflow: hidden;">
         <div style="position: absolute; top: -20px; right: -20px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; opacity: 0.3;"></div>
         <div style="position: absolute; bottom: -30px; left: -30px; width: 80px; height: 80px; background: rgba(255,255,255,0.08); border-radius: 50%; opacity: 0.4;"></div>
         <div style="display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 2;">
           <div>
-            <h1 style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">MediaMint</h1>
+            <h1 style="margin: 0; font-size: 36px; font-weight: 700; letter-spacing: -0.5px; color: white;">MediaMint</h1>
             <p style="margin: 8px 0 0 0; font-size: 16px; opacity: 0.9; font-weight: 400;">Voice Assessment Report</p>
-            <div style="width: 60px; height: 3px; background: rgba(255,255,255,0.6); margin-top: 12px; border-radius: 2px;"></div>
+            <div style="width: 60px; height: 3px; background: #1991bd; margin-top: 12px; border-radius: 2px; opacity: 0.8;"></div>
           </div>
           <div style="text-align: right;">
             <div style="background: ${gradeColor}; color: white; padding: 12px 24px; border-radius: 25px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 3px solid rgba(255,255,255,0.2);">
@@ -126,14 +126,14 @@ function generatePDFContent(assessment: Assessment): string {
       </div>
 
       <!-- Main Content -->
-      <div style="padding: 35px 30px 80px 30px;">
+      <div style="padding: 40px 40px 100px 40px;">
         <!-- Candidate Information Card -->
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 30px; margin-bottom: 35px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 600; color: #1e40af; display: flex; align-items: center;">
-            <span style="display: inline-block; width: 8px; height: 8px; background: #3b82f6; border-radius: 50%; margin-right: 12px;"></span>
+            <span style="display: inline-block; width: 8px; height: 8px; background: #1991bd; border-radius: 50%; margin-right: 12px;"></span>
             Candidate Information
           </h2>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
             <div>
               <label style="display: block; font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Full Name</label>
               <p style="margin: 0; font-size: 16px; font-weight: 500; color: #111827;">${assessment.candidate?.name || 'Unknown Candidate'}</p>
@@ -175,13 +175,13 @@ function generatePDFContent(assessment: Assessment): string {
 
         ${assessment.question ? `
           <!-- Assessment Question Card -->
-          <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; border-radius: 12px; padding: 25px; margin-bottom: 30px; position: relative; overflow: hidden;">
-            <div style="position: absolute; top: -10px; right: -10px; width: 60px; height: 60px; background: rgba(59, 130, 246, 0.1); border-radius: 50%;"></div>
-            <h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 600; color: #1e40af; position: relative; z-index: 2;">Assessment Question</h2>
-            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: relative; z-index: 2;">
-              <p style="margin: 0 0 12px 0; color: #374151; line-height: 1.6; font-size: 15px;">${assessment.question.text}</p>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="background: #1e40af; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+          <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; border-radius: 12px; padding: 30px; margin-bottom: 35px; position: relative; overflow: hidden;">
+            <div style="position: absolute; top: -10px; right: -10px; width: 60px; height: 60px; background: rgba(25, 145, 189, 0.1); border-radius: 50%;"></div>
+            <h2 style="margin: 0 0 18px 0; font-size: 20px; font-weight: 600; color: #1991bd; position: relative; z-index: 2;">Assessment Question</h2>
+            <div style="background: white; padding: 25px; border-radius: 8px; border-left: 4px solid #1991bd; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; z-index: 2;">
+              <p style="margin: 0 0 15px 0; color: #374151; line-height: 1.6; font-size: 15px;">${assessment.question.text}</p>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="background: #1991bd; color: white; padding: 6px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
                   ${assessment.question.difficulty_level}
                 </span>
                 <span style="color: #6b7280; font-size: 12px;">• Maximum 2 minutes</span>
@@ -191,23 +191,30 @@ function generatePDFContent(assessment: Assessment): string {
         ` : ''}
 
         <!-- Overall Assessment Card -->
-        <div style="text-align: center; margin-bottom: 35px;">
-          <h2 style="margin: 0 0 25px 0; font-size: 24px; font-weight: 600; color: #111827;">Overall Assessment</h2>
-          <div style="display: inline-flex; align-items: center; gap: 20px; background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); padding: 30px 40px; border-radius: 20px; border: 2px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.08); position: relative; overflow: hidden;">
+        <div style="text-align: center; margin-bottom: 40px;">
+          <h2 style="margin: 0 0 30px 0; font-size: 24px; font-weight: 600; color: #111827;">Overall Assessment</h2>
+          <div style="display: inline-block; background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); padding: 35px 45px; border-radius: 20px; border: 2px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.08); position: relative; overflow: hidden;">
             <div style="position: absolute; top: -20px; left: -20px; width: 80px; height: 80px; background: ${gradeColor}; opacity: 0.1; border-radius: 50%;"></div>
-            <div style="font-size: 56px; font-weight: 700; color: #111827; position: relative; z-index: 2;">${overallScore}</div>
-            <div style="width: 32px; height: 32px; border-radius: 50%; background: ${gradeColor}; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: relative; z-index: 2;"></div>
-            <div style="text-align: left; position: relative; z-index: 2;">
-              <div style="font-size: 20px; font-weight: 600; color: #111827; margin-bottom: 4px;">Grade: ${gradeLabel}</div>
-              <div style="font-size: 14px; color: #6b7280; font-weight: 500;">Out of 5.0 Scale</div>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 25px; position: relative; z-index: 2;">
+              <div style="text-align: center;">
+                <div style="font-size: 64px; font-weight: 700; color: #111827; line-height: 1; margin-bottom: 8px;">${overallScore}</div>
+                <div style="font-size: 14px; color: #6b7280; font-weight: 500;">Out of 5.0</div>
+              </div>
+              <div style="width: 40px; height: 40px; border-radius: 50%; background: ${gradeColor}; box-shadow: 0 3px 10px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+                <div style="width: 20px; height: 20px; background: white; border-radius: 50%; opacity: 0.3;"></div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 22px; font-weight: 600; color: #111827; margin-bottom: 4px;">Grade</div>
+                <div style="font-size: 18px; font-weight: 700; color: ${gradeColor};">${gradeLabel}</div>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Competency Breakdown -->
-        <div style="margin-bottom: 35px;">
-          <h2 style="margin: 0 0 25px 0; font-size: 22px; font-weight: 600; color: #111827; text-align: center;">Competency Breakdown</h2>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div style="margin-bottom: 40px;">
+          <h2 style="margin: 0 0 30px 0; font-size: 22px; font-weight: 600; color: #111827; text-align: center;">Competency Breakdown</h2>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
             ${Object.entries(competencyLabels).map(([key, label]) => {
               const score = assessment.assessment_scores?.[key as keyof typeof competencyLabels] || 0;
               const feedback = assessment.assessment_scores?.feedback?.[key as keyof typeof competencyLabels] || '';
@@ -215,16 +222,16 @@ function generatePDFContent(assessment: Assessment): string {
               const scoreBg = score >= 4 ? '#ecfdf5' : score >= 3 ? '#fefce8' : '#fef2f2';
               
               return `
-                <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
+                <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
                   <div style="position: absolute; top: 0; right: 0; width: 40px; height: 40px; background: ${scoreBg}; opacity: 0.5; border-radius: 0 12px 0 40px;"></div>
-                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; position: relative; z-index: 2;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; position: relative; z-index: 2;">
                     <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #111827;">${label}</h3>
-                    <div style="background: ${scoreColor}; color: white; padding: 6px 12px; border-radius: 15px; font-size: 13px; font-weight: 700; min-width: 45px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <div style="background: ${scoreColor}; color: white; padding: 8px 14px; border-radius: 15px; font-size: 14px; font-weight: 700; min-width: 50px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
                       ${score}/5
                     </div>
                   </div>
                   ${feedback ? `
-                    <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.5; position: relative; z-index: 2; padding-left: 12px; border-left: 3px solid ${scoreColor}; background: ${scoreBg}; padding: 10px 12px; border-radius: 6px; margin-top: 8px;">
+                    <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.6; position: relative; z-index: 2; padding: 12px 15px; border-left: 3px solid ${scoreColor}; background: ${scoreBg}; border-radius: 6px; margin-top: 10px;">
                       ${feedback}
                     </p>
                   ` : ''}
@@ -236,33 +243,33 @@ function generatePDFContent(assessment: Assessment): string {
 
         <!-- AI Feedback Section -->
         ${assessment.ai_feedback ? `
-          <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; border-radius: 12px; padding: 25px; margin-bottom: 35px; position: relative; overflow: hidden;">
-            <div style="position: absolute; top: -15px; right: -15px; width: 80px; height: 80px; background: rgba(59, 130, 246, 0.1); border-radius: 50%;"></div>
-            <div style="position: absolute; bottom: -10px; left: -10px; width: 60px; height: 60px; background: rgba(59, 130, 246, 0.08); border-radius: 50%;"></div>
-            <h2 style="margin: 0 0 18px 0; font-size: 20px; font-weight: 600; color: #1e40af; position: relative; z-index: 2;">Overall Assessment Feedback</h2>
-            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: relative; z-index: 2;">
+          <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; border-radius: 12px; padding: 30px; margin-bottom: 40px; position: relative; overflow: hidden;">
+            <div style="position: absolute; top: -15px; right: -15px; width: 80px; height: 80px; background: rgba(25, 145, 189, 0.1); border-radius: 50%;"></div>
+            <div style="position: absolute; bottom: -10px; left: -10px; width: 60px; height: 60px; background: rgba(25, 145, 189, 0.08); border-radius: 50%;"></div>
+            <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 600; color: #1991bd; position: relative; z-index: 2;">Overall Assessment Feedback</h2>
+            <div style="background: white; padding: 25px; border-radius: 8px; border-left: 4px solid #1991bd; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; z-index: 2;">
               <p style="margin: 0; color: #374151; line-height: 1.7; font-size: 15px;">${assessment.ai_feedback}</p>
             </div>
           </div>
         ` : ''}
 
         <!-- Performance Summary -->
-        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 25px; margin-bottom: 30px;">
-          <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 600; color: #111827; text-align: center;">Performance Summary</h2>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
-            <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
+        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 30px; margin-bottom: 35px;">
+          <h2 style="margin: 0 0 25px 0; font-size: 20px; font-weight: 600; color: #111827; text-align: center;">Performance Summary</h2>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center;">
+            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <div style="font-size: 24px; font-weight: 700; color: #10b981; margin-bottom: 4px;">
                 ${Object.values(assessment.assessment_scores || {}).filter((score: any) => typeof score === 'number' && score >= 4).length}
               </div>
               <div style="font-size: 12px; color: #6b7280; font-weight: 500;">Green Scores</div>
             </div>
-            <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <div style="font-size: 24px; font-weight: 700; color: #f59e0b; margin-bottom: 4px;">
                 ${Object.values(assessment.assessment_scores || {}).filter((score: any) => typeof score === 'number' && score >= 3 && score < 4).length}
               </div>
               <div style="font-size: 12px; color: #6b7280; font-weight: 500;">Amber Scores</div>
             </div>
-            <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <div style="font-size: 24px; font-weight: 700; color: #ef4444; margin-bottom: 4px;">
                 ${Object.values(assessment.assessment_scores || {}).filter((score: any) => typeof score === 'number' && score < 3).length}
               </div>
@@ -272,18 +279,18 @@ function generatePDFContent(assessment: Assessment): string {
         </div>
 
         <!-- Scoring Guide -->
-        <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 12px; padding: 20px; margin-bottom: 30px;">
-          <h3 style="margin: 0 0 15px 0; font-size: 16px; font-weight: 600; color: #92400e; text-align: center;">Scoring Guide</h3>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center;">
-            <div style="background: #fef2f2; padding: 12px; border-radius: 8px; border: 1px solid #fecaca;">
+        <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 12px; padding: 25px; margin-bottom: 35px;">
+          <h3 style="margin: 0 0 20px 0; font-size: 16px; font-weight: 600; color: #92400e; text-align: center;">Scoring Guide</h3>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+            <div style="background: #fef2f2; padding: 15px; border-radius: 8px; border: 1px solid #fecaca;">
               <div style="font-weight: 600; color: #dc2626; margin-bottom: 4px;">Red (1-2.9)</div>
               <div style="font-size: 11px; color: #7f1d1d;">Needs Improvement</div>
             </div>
-            <div style="background: #fefce8; padding: 12px; border-radius: 8px; border: 1px solid #fde68a;">
+            <div style="background: #fefce8; padding: 15px; border-radius: 8px; border: 1px solid #fde68a;">
               <div style="font-weight: 600; color: #d97706; margin-bottom: 4px;">Amber (3-3.9)</div>
               <div style="font-size: 11px; color: #92400e;">Good Performance</div>
             </div>
-            <div style="background: #f0fdf4; padding: 12px; border-radius: 8px; border: 1px solid #bbf7d0;">
+            <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; border: 1px solid #bbf7d0;">
               <div style="font-weight: 600; color: #16a34a; margin-bottom: 4px;">Green (4-5)</div>
               <div style="font-size: 11px; color: #14532d;">Excellent</div>
             </div>
@@ -292,12 +299,12 @@ function generatePDFContent(assessment: Assessment): string {
       </div>
 
       <!-- Footer -->
-      <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-top: 2px solid #e2e8f0; padding: 20px 30px;">
+      <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-top: 2px solid #1991bd; padding: 25px 40px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <p style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #1e40af;">MediaMint Voice Assessment Tool</p>
+            <p style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #1991bd;">MediaMint Voice Assessment Tool</p>
             <p style="margin: 0 0 2px 0; font-size: 12px; color: #6b7280;">AI-powered communications evaluation platform</p>
-            <p style="margin: 0; font-size: 10px; color: #9ca3af; font-style: italic;">Evaluated and generated by AI</p>
+            <p style="margin: 0; font-size: 9px; color: #9ca3af; font-style: italic;">Evaluated and generated by AI</p>
           </div>
           <div style="text-align: right;">
             <p style="margin: 0 0 4px 0; font-size: 12px; color: #6b7280;">
@@ -309,7 +316,7 @@ function generatePDFContent(assessment: Assessment): string {
                 minute: '2-digit'
               })}
             </p>
-            <p style="margin: 0; font-size: 11px; color: #3b82f6; font-weight: 500;">
+            <p style="margin: 0; font-size: 11px; color: #1991bd; font-weight: 500;">
               www.mediamint.com/careers
             </p>
           </div>
