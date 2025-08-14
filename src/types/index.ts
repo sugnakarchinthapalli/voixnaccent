@@ -19,6 +19,12 @@ export interface Assessment {
   assessment_date: string;
   processing_status: 'pending' | 'processing' | 'completed' | 'failed';
   question_id: string | null;
+  // New CEFR fields
+  overall_cefr_level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | null;
+  detailed_analysis: string | null;
+  specific_strengths: string | null;
+  areas_for_improvement: string | null;
+  score_justification: string | null;
   candidate?: Candidate;
   question?: Question;
 }

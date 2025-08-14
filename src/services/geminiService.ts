@@ -1,16 +1,9 @@
-interface CompetencyScore {
-  score: number;
-  feedback: string;
-}
-
-interface GeminiAssessmentResult {
-  clarity_articulation: CompetencyScore;
-  pace: CompetencyScore;
-  tone_modulation: CompetencyScore;
-  accent_neutrality: CompetencyScore;
-  confidence_energy: CompetencyScore;
-  grammar_fluency: CompetencyScore;
-  overall_feedback: string;
+interface CEFRAssessmentResult {
+  overall_cefr_level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+  detailed_analysis: string;
+  specific_strengths: string;
+  areas_for_improvement: string;
+  score_justification: string;
 }
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
@@ -21,73 +14,45 @@ const MAX_RETRIES = 3;
 const BASE_DELAY = 2000; // 2 seconds
 const MAX_DELAY = 30000; // 30 seconds
 
-const ASSESSMENT_PROMPT = `
-You are an expert voice assessment AI specializing in evaluating Indian English speakers for professional assessors. Analyze the provided audio and score it based on these 6 competencies using a 1-5 scale. Provide feedback from the assessor's perspective about the candidate's performance. Please be culturally sensitive and consider that most candidates will be Indian English speakers, so adjust expectations accordingly:
+const CEFR_ASSESSMENT_PROMPT = `
+You are an expert language assessment AI specializing in evaluating spoken English using the CEFR (Common European Framework of Reference for Languages) framework. Analyze the provided audio recording and assess the speaker's proficiency level based on the CEFR Qualitative Aspects of Spoken Language Use.
 
-**Scoring Criteria:**
-1. **Clarity & Articulation** (1-5):
-   - 1: Speech very unclear, heavy mumbling, excessive fillers
-   - 2: Somewhat unclear, frequent mumbling/fillers but mostly understandable
-   - 3: Generally clear, occasional fillers, good comprehension (BASELINE for Indian English)
-   - 4: Clear and articulate, minimal fillers, professional quality
-   - 5: Exceptionally clear, crisp pronunciation, broadcast quality
+**Assessment Framework:**
+Use the CEFR Qualitative Aspects of Spoken Language Use (Table 3, CEFR 3.3) which evaluates:
+- **Range**: Vocabulary breadth and grammatical structures used
+- **Accuracy**: Grammatical and lexical precision
+- **Fluency**: Rhythm, pace, and hesitation patterns
+- **Interaction**: Turn-taking and conversational management (assess based on monologue delivery)
+- **Coherence**: Logical organization and linking of ideas
 
-2. **Pace** (1-5):
-   - 1: Extremely fast or slow, very difficult to follow
-   - 2: Often too fast or slow, requires effort to follow
-   - 3: Generally appropriate pace, comfortable to follow (BASELINE)
-   - 4: Consistent and well-paced, easy to follow
-   - 5: Perfect natural pacing that enhances communication
+**CEFR Scoring Criteria (Apply Stringently):**
+- **C2 (Mastery)**: Near-native proficiency with sophisticated language use, minimal errors, natural fluency, complex ideas expressed effortlessly
+- **C1 (Proficiency)**: Advanced level with complex language structures, occasional minor errors, good fluency, can handle abstract topics
+- **B2 (Upper-Intermediate)**: Independent user with good range, some errors that don't impede communication, generally fluent
+- **B1 (Intermediate)**: Basic independent user, limited range, noticeable errors but generally comprehensible, some hesitation
+- **A2 (Elementary)**: Basic user with simple language, frequent errors, limited vocabulary, significant hesitation
+- **A1 (Beginner)**: Very basic language use, many errors, very limited vocabulary and structures, frequent breakdowns
 
-3. **Tone & Modulation** (1-5):
-   - 1: Completely monotonous, no variation
-   - 2: Very limited variation, mostly flat
-   - 3: Some natural variation, pleasant to listen to (BASELINE)
-   - 4: Good tone variation, engaging and expressive
-   - 5: Excellent modulation, very dynamic and captivating
+**Assessment Guidelines:**
+- Be stringent in scoring - require clear evidence of consistent performance at each level
+- Consider the candidate's weakest area when determining overall level
+- Provide constructive, actionable feedback
+- Reference specific examples from the recording when possible
+- Focus on communication effectiveness while noting accuracy issues
 
-4. **Accent Neutrality** (1-5):
-   - 1: Very strong regional accent, significantly impacts understanding
-   - 2: Strong accent, some difficulty in understanding
-   - 3: Mild Indian accent, easily understandable (BASELINE - this is normal and acceptable)
-   - 4: Very neutral Indian English, minimal accent
-   - 5: Near-native neutral accent, universally clear
-
-5. **Confidence & Energy** (1-5):
-   - 1: Very nervous, lacks confidence, hesitant
-   - 2: Some nervousness, low confidence
-   - 3: Reasonably confident, comfortable speaking (BASELINE)
-   - 4: Confident and composed, good energy
-   - 5: Very confident, commanding presence, excellent energy
-
-6. **Grammar & Fluency** (1-5):
-   - 1: Frequent grammatical errors, broken sentences
-   - 2: Several errors, affects fluency
-   - 3: Minor grammatical issues, generally fluent (BASELINE for Indian English)
-   - 4: Good grammar, smooth and natural
-   - 5: Excellent grammar, very fluent and natural
-
-**Important Notes:**
-- Score 3 should be considered the baseline for competent Indian English speakers
-- Indian English variations are normal and should not be penalized heavily
-- Focus on communication effectiveness rather than perfect native-like pronunciation
-- Be encouraging in feedback while providing constructive suggestions
-
-**Response Format (JSON only):**
+**Required Output Format (JSON only):**
 {
-  "clarity_articulation": {"score": X, "feedback": "The candidate's speech clarity is... [assessor perspective]"},
-  "pace": {"score": X, "feedback": "The candidate's speaking pace is... [assessor perspective]"},
-  "tone_modulation": {"score": X, "feedback": "The candidate demonstrates... [assessor perspective]"},
-  "accent_neutrality": {"score": X, "feedback": "The candidate's accent is... [assessor perspective]"},
-  "confidence_energy": {"score": X, "feedback": "The candidate shows... [assessor perspective]"},
-  "grammar_fluency": {"score": X, "feedback": "The candidate's grammar and fluency... [assessor perspective]"},
-  "overall_feedback": "Overall assessment: The candidate... [2-3 sentence summary from assessor perspective]"
+  "overall_cefr_level": "[A1/A2/B1/B2/C1/C2]",
+  "detailed_analysis": "Comprehensive analysis of at least 100 characters covering vocabulary range and appropriateness, grammatical accuracy and complexity, pronunciation and intelligibility, fluency and natural speech patterns, coherence and organization of ideas.",
+  "specific_strengths": "What the candidate does well in their spoken English performance.",
+  "areas_for_improvement": "Concrete, actionable suggestions for language development.",
+  "score_justification": "Clear explanation of why this specific CEFR level was assigned, referencing specific evidence from the recording."
 }
 
-Analyze the audio and provide scores with brief, professional feedback about the candidate's performance from an assessor's perspective. Write all feedback as observations about the candidate (e.g., "The candidate speaks clearly...", "The candidate's pace is...", "The candidate demonstrates..."). Remember that effective communication is more important than perfect accent neutrality.
+Analyze the audio recording and provide a comprehensive CEFR assessment with detailed, professional feedback. Be precise and evidence-based in your evaluation.
 `;
 
-export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAssessmentResult> {
+export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessmentResult> {
   if (!GEMINI_API_KEY) {
     throw new Error('Gemini API key not configured');
   }
@@ -106,7 +71,7 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
           {
             parts: [
               {
-                text: ASSESSMENT_PROMPT
+                text: CEFR_ASSESSMENT_PROMPT
               },
               {
                 inline_data: {
@@ -121,7 +86,7 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
           temperature: 0.1,
           topK: 32,
           topP: 1,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 2048,
         }
       };
 
@@ -180,19 +145,26 @@ export async function assessAudioWithGemini(audioUrl: string): Promise<GeminiAss
       const assessmentResult = JSON.parse(jsonMatch[0]);
       
       // Validate the response structure
-      const requiredFields = ['clarity_articulation', 'pace', 'tone_modulation', 'accent_neutrality', 'confidence_energy', 'grammar_fluency'];
+      const requiredFields = ['overall_cefr_level', 'detailed_analysis', 'specific_strengths', 'areas_for_improvement', 'score_justification'];
       for (const field of requiredFields) {
-        if (!assessmentResult[field] || typeof assessmentResult[field].score !== 'number') {
+        if (!assessmentResult[field] || typeof assessmentResult[field] !== 'string') {
           console.error(`Invalid assessment result: missing or invalid ${field}`, assessmentResult);
           throw new Error(`Invalid assessment result: missing or invalid ${field}`);
         }
       }
 
-      console.log('Assessment completed successfully');
+      // Validate CEFR level
+      const validCEFRLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+      if (!validCEFRLevels.includes(assessmentResult.overall_cefr_level)) {
+        console.error(`Invalid CEFR level: ${assessmentResult.overall_cefr_level}`);
+        throw new Error(`Invalid CEFR level: ${assessmentResult.overall_cefr_level}`);
+      }
+
+      console.log('CEFR assessment completed successfully');
       return assessmentResult;
       
     } catch (error) {
-      console.error('Error assessing audio with Gemini:', error);
+      console.error('Error assessing audio with CEFR:', error);
       throw error;
     }
   });
