@@ -1,8 +1,9 @@
 import React from 'react';
-import { X, User, Calendar, Mic, Mail, ExternalLink } from 'lucide-react';
+import { X, User, Calendar, Mic, Mail, ExternalLink, Download } from 'lucide-react';
 import { Assessment } from '../../types';
 import { ScoreBadge } from '../UI/ScoreBadge';
 import { Button } from '../UI/Button';
+import { exportAssessmentToPDF } from '../../utils/pdfExport';
 
 interface AssessmentDetailsProps {
   assessment: Assessment;
@@ -19,6 +20,8 @@ const competencyLabels = {
 };
 
 export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProps) {
+  const [exportingPDF, setExportingPDF] = React.useState(false);
+
   const getOverallScore = () => {
     const scores = assessment.assessment_scores;
     if (!scores || typeof scores !== 'object') return 0;
@@ -41,17 +44,40 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
     }
   };
 
+  const handleExportPDF = async () => {
+    setExportingPDF(true);
+    try {
+      await exportAssessmentToPDF(assessment);
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      alert('Failed to generate PDF report. Please try again.');
+    } finally {
+      setExportingPDF(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Assessment Details</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X className="h-6 w-6" />
-          </button>
+          <div className="flex items-center space-x-3">
+            <Button
+              onClick={handleExportPDF}
+              loading={exportingPDF}
+              variant="outline"
+              className="flex items-center space-x-2"
+            >
+              <Download className="h-4 w-4" />
+              <span>Download PDF</span>
+            </Button>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
         </div>
 
         <div className="p-6 space-y-8">
