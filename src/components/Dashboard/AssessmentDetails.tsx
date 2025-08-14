@@ -62,11 +62,10 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
         <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Assessment Details</h2>
-            {isNewCEFRAssessment && (
+            {isNewCEFRAssessment ? (
               <p className="text-sm text-blue-600 font-medium">CEFR Framework Assessment</p>
-            )}
-            {!isNewCEFRAssessment && (
-              <p className="text-sm text-gray-500">Legacy Competency Assessment</p>
+            ) : (
+              <p className="text-sm text-orange-600 font-medium">Legacy Competency Assessment</p>
             )}
           </div>
           <div className="flex items-center space-x-3">
@@ -174,7 +173,7 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
 
           {/* Assessment Result */}
           {isNewCEFRAssessment ? (
-            /* New CEFR Assessment Display */
+            /* CEFR Assessment Display */
             <div className="text-center">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">CEFR Assessment Result</h3>
               <div className={`inline-flex items-center justify-center space-x-4 px-8 py-6 rounded-xl border-2 ${getCEFRColor(assessment.overall_cefr_level!)}`}>
@@ -189,9 +188,9 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
               </div>
             </div>
           ) : (
-            /* Legacy Assessment Display */
+            /* Legacy Competency Assessment Display */
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Overall Assessment (Legacy)</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Overall Assessment (Competency System)</h3>
               <div className="flex items-center justify-center space-x-4">
                 <div className="text-4xl font-bold text-gray-900">
                   {(() => {
@@ -230,7 +229,7 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
 
           {/* Assessment Content */}
           {isNewCEFRAssessment ? (
-            /* New CEFR Assessment Content */
+            /* CEFR Assessment Content */
             <>
               {/* Detailed Analysis */}
               {assessment.detailed_analysis && (
@@ -266,11 +265,11 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
               )}
             </>
           ) : (
-            /* Legacy Assessment Content */
+            /* Legacy Competency Assessment Content */
             <>
-              {/* Legacy Competency Scores */}
+              {/* Competency Scores */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Competency Breakdown (Legacy)</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Competency Breakdown</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {assessment.assessment_scores && typeof assessment.assessment_scores === 'object' && (
                     Object.entries({
@@ -300,7 +299,7 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
                 </div>
               </div>
 
-              {/* Legacy AI Feedback */}
+              {/* Overall Feedback */}
               {assessment.ai_feedback && (
                 <div className="bg-blue-50 rounded-lg p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Overall Feedback</h3>

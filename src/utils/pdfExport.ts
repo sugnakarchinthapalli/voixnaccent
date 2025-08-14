@@ -131,7 +131,7 @@ function generatePDFContent(assessment: Assessment): string {
           <div>
             <h1 style="margin: 0; font-size: 36px; font-weight: 700; letter-spacing: -0.5px; color: white;">MediaMint</h1>
             <p style="margin: 8px 0 0 0; font-size: 16px; opacity: 0.9; font-weight: 400;">
-              Voice Assessment Report ${isNewCEFRAssessment ? '(CEFR Framework)' : '(Legacy)'}
+              Voice Assessment Report ${isNewCEFRAssessment ? '(CEFR Framework)' : '(Competency System)'}
             </p>
             <div style="width: 60px; height: 3px; background: rgba(255,255,255,0.6); margin-top: 12px; border-radius: 2px;"></div>
           </div>
@@ -221,9 +221,9 @@ function generatePDFContent(assessment: Assessment): string {
             </div>
           </div>
         ` : `
-          <!-- Legacy Assessment Result -->
+          <!-- Competency Assessment Result -->
           <div style="text-align: center; margin-bottom: 40px;">
-            <h2 style="margin: 0 0 30px 0; font-size: 24px; font-weight: 600; color: #111827;">Overall Assessment (Legacy)</h2>
+            <h2 style="margin: 0 0 30px 0; font-size: 24px; font-weight: 600; color: #111827;">Overall Assessment (Competency System)</h2>
             <div style="display: inline-block; background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); padding: 35px 45px; border-radius: 20px; border: 2px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
               <div style="text-align: center;">
                 <div style="font-size: 48px; font-weight: 700; color: #111827; line-height: 1; margin-bottom: 8px;">${displayScore}</div>

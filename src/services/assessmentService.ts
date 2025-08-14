@@ -217,7 +217,7 @@ export class AssessmentService {
       // Map CEFR level to traditional grade for backward compatibility
       const overallGrade = mapCEFRToGrade(cefrResult.overall_cefr_level);
 
-      // All assessments are now manual
+      // All new assessments use CEFR framework
       // Determine who assessed this based on the candidate source
       let assessedBy = 'Candidate Submission'; // Default for candidate submissions
       
@@ -238,13 +238,13 @@ export class AssessmentService {
         .from('assessments')
         .insert({
           candidate_id: candidate.id,
-          assessment_scores: {}, // Empty for CEFR assessments
+          assessment_scores: {}, // Empty - using CEFR framework
           overall_grade: overallGrade,
-          ai_feedback: cefrResult.detailed_analysis,
+          ai_feedback: null, // Using detailed_analysis instead
           assessed_by: assessedBy,
           processing_status: 'completed',
           question_id: queueItem.question_id || null,
-          // New CEFR fields
+          // CEFR framework fields
           overall_cefr_level: cefrResult.overall_cefr_level,
           detailed_analysis: cefrResult.detailed_analysis,
           specific_strengths: cefrResult.specific_strengths,

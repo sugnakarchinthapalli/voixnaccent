@@ -217,7 +217,7 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {assessment.overall_cefr_level ? (
-                      // New CEFR Assessment
+                      // CEFR Assessment
                       <div className="flex items-center space-x-2">
                         <div className={`w-3 h-3 rounded-full ${getCEFRColor(assessment.overall_cefr_level)}`} 
                              title={`CEFR Level: ${assessment.overall_cefr_level}`}></div>
@@ -229,7 +229,7 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                         </span>
                       </div>
                     ) : (
-                      // Legacy Assessment
+                      // Legacy Competency Assessment
                       <div className="flex items-center space-x-2">
                         {assessment.overall_grade && (
                           <div className={`w-3 h-3 rounded-full ${
@@ -243,13 +243,13 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                         <span className="text-sm font-medium text-gray-700">
                           {getOverallScore(assessment.assessment_scores)}
                         </span>
-                        <span className="text-xs text-gray-500">(Legacy)</span>
+                        <span className="text-xs text-gray-500">(Competency)</span>
                       </div>
                     )}
                   </td>
                   <td className="px-6 py-4">
                     {assessment.overall_cefr_level ? (
-                      // New CEFR Assessment - Show key strengths/areas
+                      // CEFR Assessment - Show key insights
                       <div className="text-xs text-gray-600">
                         {assessment.specific_strengths && (
                           <div className="mb-1">
@@ -263,9 +263,9 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                         )}
                       </div>
                     ) : (
-                      // Legacy Assessment - Show old competency scores
+                      // Legacy Competency Assessment
                       <div className="text-xs text-gray-500">
-                        Legacy competency-based assessment
+                        Competency-based assessment (legacy)
                       </div>
                     )}
                   </td>

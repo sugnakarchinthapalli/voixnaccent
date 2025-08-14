@@ -7,15 +7,15 @@ export function exportToCSV(assessments: Assessment[], filename: string = 'voice
     'Assessment Date',
     'Assessment Type',
     'CEFR Level',
-    'Overall Grade',
-    'Legacy Score',
+    'Overall Grade', 
+    'Competency Score',
     'Detailed Analysis',
     'Specific Strengths',
     'Areas for Improvement',
     'Score Justification',
     'Assessed By',
     'Audio Source',
-    'Legacy Feedback'
+    'Overall Feedback'
   ];
 
   const getLegacyOverallScore = (scores: any) => {
@@ -43,7 +43,7 @@ export function exportToCSV(assessments: Assessment[], filename: string = 'voice
       hour: '2-digit',
       minute: '2-digit'
     }),
-    assessment.overall_cefr_level ? 'CEFR Assessment' : 'Legacy Assessment',
+    assessment.overall_cefr_level ? 'CEFR Assessment' : 'Competency Assessment',
     assessment.overall_cefr_level || '',
     assessment.overall_grade || '',
     getLegacyOverallScore(assessment.assessment_scores),
@@ -53,7 +53,7 @@ export function exportToCSV(assessments: Assessment[], filename: string = 'voice
     assessment.score_justification?.replace(/"/g, '""') || '',
     assessment.assessed_by,
     assessment.candidate?.audio_source || '',
-    assessment.ai_feedback?.replace(/"/g, '""') || '' // Legacy feedback
+    assessment.ai_feedback?.replace(/"/g, '""') || '' // Overall feedback for competency assessments
   ]);
 
   const csvContent = [headers, ...rows]
