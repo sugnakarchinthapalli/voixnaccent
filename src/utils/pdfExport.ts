@@ -29,7 +29,7 @@ export async function exportAssessmentToPDF(assessment: Assessment): Promise<voi
     
     // Convert to canvas with high quality settings
     const canvas = await html2canvas(container, {
-      scale: 3, // Higher scale for better quality
+      scale: 1.5, // Reduced scale for smaller file size
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#ffffff',
@@ -37,7 +37,8 @@ export async function exportAssessmentToPDF(assessment: Assessment): Promise<voi
       height: container.offsetHeight,
       logging: false,
       imageTimeout: 15000,
-      removeContainer: true
+      removeContainer: true,
+      quality: 0.8 // Reduce quality for smaller file size
     });
     
     // Remove from DOM
@@ -49,7 +50,7 @@ export async function exportAssessmentToPDF(assessment: Assessment): Promise<voi
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     
     // Add the canvas as image to PDF
-    const imgData = canvas.toDataURL('image/png', 1.0);
+    const imgData = canvas.toDataURL('image/jpeg', 0.85); // Use JPEG with compression
     pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
     
     // Save the PDF
@@ -105,19 +106,17 @@ function generatePDFContent(assessment: Assessment): string {
   const gradeLabel = getGradeLabel(overallScore);
 
   return `
-    <div style="width: 794px; min-height: 1123px; background: white; position: relative; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="width: 794px; min-height: 1123px; background: white; position: relative; box-sizing: border-box; font-family: Arial, sans-serif;">
       <!-- Header Section -->
-      <div style="background: linear-gradient(135deg, #1991bd 0%, #1991bd 100%); color: white; padding: 30px 40px; margin: 0; position: relative; overflow: hidden;">
-        <div style="position: absolute; top: -20px; right: -20px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; opacity: 0.3;"></div>
-        <div style="position: absolute; bottom: -30px; left: -30px; width: 80px; height: 80px; background: rgba(255,255,255,0.08); border-radius: 50%; opacity: 0.4;"></div>
-        <div style="display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 2;">
+      <div style="background: #1991bd; color: white; padding: 30px 40px; margin: 0;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
           <div>
             <h1 style="margin: 0; font-size: 36px; font-weight: 700; letter-spacing: -0.5px; color: white;">MediaMint</h1>
             <p style="margin: 8px 0 0 0; font-size: 16px; opacity: 0.9; font-weight: 400;">Voice Assessment Report</p>
-            <div style="width: 60px; height: 3px; background: #1991bd; margin-top: 12px; border-radius: 2px; opacity: 0.8;"></div>
+            <div style="width: 60px; height: 3px; background: rgba(255,255,255,0.6); margin-top: 12px; border-radius: 2px;"></div>
           </div>
           <div style="text-align: right;">
-            <div style="background: ${gradeColor}; color: white; padding: 12px 24px; border-radius: 25px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 3px solid rgba(255,255,255,0.2);">
+            <div style="background: ${gradeColor}; color: white; padding: 12px 24px; border-radius: 25px; font-weight: 700; font-size: 16px; display: flex; align-items: center; justify-content: center; min-height: 20px;">
               ${gradeLabel} Grade
             </div>
             <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.8; font-weight: 500;">Overall Score: ${overallScore}/5.0</p>
@@ -128,12 +127,12 @@ function generatePDFContent(assessment: Assessment): string {
       <!-- Main Content -->
       <div style="padding: 40px 40px 100px 40px;">
         <!-- Candidate Information Card -->
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 30px; margin-bottom: 35px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 25px; margin-bottom: 30px;">
           <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 600; color: #1e40af; display: flex; align-items: center;">
-            <span style="display: inline-block; width: 8px; height: 8px; background: #1991bd; border-radius: 50%; margin-right: 12px;"></span>
+            <span style="display: inline-block; width: 8px; height: 8px; background: #1991bd; border-radius: 50%; margin-right: 10px;"></span>
             Candidate Information
           </h2>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div>
               <label style="display: block; font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Full Name</label>
               <p style="margin: 0; font-size: 16px; font-weight: 500; color: #111827;">${assessment.candidate?.name || 'Unknown Candidate'}</p>
