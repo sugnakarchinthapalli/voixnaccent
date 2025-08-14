@@ -149,7 +149,7 @@ export function Dashboard() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Voice Assessments</h1>
               <p className="text-gray-600 mt-1">
-                AI-powered voice evaluation dashboard - Manual Processing Only
+                AI-powered communications evaluation App - Dashboard
               </p>
             </div>
             <div className="flex items-center space-x-3">
