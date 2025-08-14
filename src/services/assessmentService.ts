@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { Candidate, Assessment, QueueItem, CompetencyScores } from '../types';
-import { assessAudioWithCEFR, mapCEFRToGrade } from './geminiService';
+import { assessAudioWithCEFR, mapCEFRToGrade, type CEFRAssessmentResult } from './geminiService';
 import { storageService } from './storageService';
 
 const MAX_CONCURRENT_ASSESSMENTS = 2;
@@ -20,16 +20,31 @@ export class AssessmentService {
   }): Promise<Candidate> {
     console.log('Creating candidate with data:', candidateData);
     
-    // Check for existing candidate with same email
-    const { data: existingCandidate } = await supabase
-      .from('candidates')
-      .select('id, name, email')
-      .eq('email', candidateData.email.trim())
-      .single();
+    try {
+      // Check for existing candidate with same email
+      const { data: existingCandidate, error: checkError } = await supabase
+        .from('candidates')
+        .select('id, name, email')
+        .eq('email', candidateData.email.trim())
+        .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no record found
 
-    if (existingCandidate) {
-      console.log('Candidate already exists:', existingCandidate);
-      throw new Error(`A candidate with email "${candidateData.email}" already exists: ${existingCandidate.name}`);
+      // Only throw error if there's a database error (not if no record found)
+      if (checkError) {
+        console.error('Error checking for existing candidate:', checkError);
+        throw new Error(`Database error while checking for existing candidate: ${checkError.message}`);
+      }
+
+      if (existingCandidate) {
+        console.log('Candidate already exists:', existingCandidate);
+        throw new Error(`A candidate with email "${candidateData.email}" already exists: ${existingCandidate.name}`);
+      }
+    } catch (error) {
+      // If it's our custom error about existing candidate, re-throw it
+      if (error instanceof Error && error.message.includes('already exists')) {
+        throw error;
+      }
+      // For other errors, log and continue (might be RLS policy issue)
+      console.warn('Could not check for existing candidate, proceeding with creation:', error);
     }
 
     console.log('Inserting new candidate...');
@@ -212,7 +227,15 @@ export class AssessmentService {
       const audioUrl = candidate.audio_source;
 
       // Assess with CEFR framework using Gemini
-      const cefrResult = await assessAudioWithCEFR(audioUrl);
+      console.log('🤖 Starting CEFR assessment with Gemini...');
+      const cefrResult: CEFRAssessmentResult = await assessAudioWithCEFR(audioUrl);
+      console.log('🎯 CEFR assessment completed:', {
+        level: cefrResult.overall_cefr_level,
+        hasAnalysis: !!cefrResult.detailed_analysis,
+        hasStrengths: !!cefrResult.specific_strengths,
+        hasImprovements: !!cefrResult.areas_for_improvement,
+        hasJustification: !!cefrResult.score_justification
+      });
       
       // Map CEFR level to traditional grade for backward compatibility
       const overallGrade = mapCEFRToGrade(cefrResult.overall_cefr_level);
