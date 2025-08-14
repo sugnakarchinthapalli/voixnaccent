@@ -1,5 +1,8 @@
 import { supabaseServiceRole } from '../lib/supabaseServiceRole';
 import { Candidate, QueueItem } from '../types';
+import { assessAudioWithCEFR, mapCEFRToGrade } from './geminiService';
+import type { CEFRAssessmentResult } from './geminiService';
+import { storageService } from './storageService';
 
 export class CandidateSubmissionService {
   async createCandidateSubmission(candidateData: {
@@ -40,7 +43,7 @@ export class CandidateSubmissionService {
           name: candidateData.name.trim(),
           email: candidateData.email.trim(),
           audio_source: candidateData.audio_source,
-          source_type: 'auto', // Mark as 'auto' to distinguish from manual uploads
+          source_type: 'manual', // Mark as 'manual' for candidate submissions
           snapshot_url: candidateData.snapshot_url || null
         })
         .select()
@@ -53,37 +56,108 @@ export class CandidateSubmissionService {
 
       console.log('✅ Candidate created successfully:', candidate);
 
-      // Add to assessment queue using service role
-      console.log('📋 Adding to assessment queue...');
-      const { data: queueItem, error: queueError } = await supabaseServiceRole
-        .from('assessment_queue')
+      // Process assessment immediately using CEFR system
+      console.log('🤖 Starting immediate CEFR assessment...');
+      const cefrResult: CEFRAssessmentResult = await assessAudioWithCEFR(candidateData.audio_source);
+      console.log('🎯 CEFR assessment completed:', {
+        level: cefrResult.overall_cefr_level,
+        hasAnalysis: !!cefrResult.detailed_analysis,
+        hasStrengths: !!cefrResult.specific_strengths,
+        hasImprovements: !!cefrResult.areas_for_improvement,
+        hasJustification: !!cefrResult.score_justification
+      });
+      
+      // Map CEFR level to traditional grade for backward compatibility
+      const overallGrade = mapCEFRToGrade(cefrResult.overall_cefr_level);
+
+      // Save assessment directly using service role
+      console.log('💾 Saving CEFR assessment...');
+      const { data: assessment, error: assessmentError } = await supabaseServiceRole
+        .from('assessments')
         .insert({
           candidate_id: candidate.id,
-          status: 'pending',
-          priority: 10, // High priority for candidate submissions
-          retry_count: 0
+          assessment_scores: {}, // Empty - using CEFR framework
+          overall_grade: overallGrade,
+          ai_feedback: null, // Using detailed_analysis instead
+          assessed_by: 'Candidate Submission',
+          processing_status: 'completed',
+          question_id: candidateData.question_id || null,
+          // CEFR framework fields
+          overall_cefr_level: cefrResult.overall_cefr_level,
+          detailed_analysis: cefrResult.detailed_analysis,
+          specific_strengths: cefrResult.specific_strengths,
+          areas_for_improvement: cefrResult.areas_for_improvement,
+          score_justification: cefrResult.score_justification
         })
         .select()
         .single();
 
-      if (queueError) {
-        console.error('❌ Error adding to queue:', queueError);
-        // Try to cleanup candidate record if queue insertion fails
+      if (assessmentError) {
+        console.error('❌ Error saving assessment:', assessmentError);
+        // Try to cleanup candidate record and uploaded files if assessment fails
         await supabaseServiceRole
           .from('candidates')
           .delete()
           .eq('id', candidate.id);
         
-        throw new Error(`Failed to add to assessment queue: ${queueError.message}`);
+        // Clean up uploaded files
+        if (candidateData.audio_source.includes('supabase')) {
+          try {
+            await storageService.deleteAudioFile(candidateData.audio_source);
+          } catch (error) {
+            console.warn('Could not delete audio file during cleanup:', error);
+          }
+        }
+        
+        if (candidateData.snapshot_url && candidateData.snapshot_url.includes('supabase')) {
+          try {
+            await storageService.deleteImageFile(candidateData.snapshot_url);
+          } catch (error) {
+            console.warn('Could not delete snapshot during cleanup:', error);
+          }
+        }
+        
+        throw new Error(`Failed to save assessment: ${assessmentError.message}`);
       }
 
-      console.log('✅ Added to queue successfully:', queueItem);
+      console.log('✅ Assessment saved successfully:', assessment);
       console.log('🎉 Candidate submission completed successfully!');
 
-      return { candidate, queueItem };
+      // Create a mock queue item for backward compatibility
+      const mockQueueItem: QueueItem = {
+        id: 'immediate-processing',
+        candidate_id: candidate.id,
+        status: 'completed',
+        priority: 10,
+        batch_id: null,
+        error_message: null,
+        retry_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      return { candidate, queueItem: mockQueueItem };
 
     } catch (error) {
       console.error('💥 Candidate submission failed:', error);
+      
+      // Enhanced error handling with cleanup
+      if (candidateData.audio_source.includes('supabase')) {
+        try {
+          await storageService.deleteAudioFile(candidateData.audio_source);
+        } catch (cleanupError) {
+          console.warn('Could not delete audio file during error cleanup:', cleanupError);
+        }
+      }
+      
+      if (candidateData.snapshot_url && candidateData.snapshot_url.includes('supabase')) {
+        try {
+          await storageService.deleteImageFile(candidateData.snapshot_url);
+        } catch (cleanupError) {
+          console.warn('Could not delete snapshot during error cleanup:', cleanupError);
+        }
+      }
+      
       throw error;
     }
   }
