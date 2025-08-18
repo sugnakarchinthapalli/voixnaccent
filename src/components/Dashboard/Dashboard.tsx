@@ -18,7 +18,6 @@ export function Dashboard() {
   const [showGenerate, setShowGenerate] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
-    assessedBy: '',
     framework: '',
     dateFrom: getFirstDayOfCurrentMonth(),
     dateTo: getLastDayOfCurrentMonth()
