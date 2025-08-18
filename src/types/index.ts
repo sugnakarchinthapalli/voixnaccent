@@ -3,7 +3,6 @@ export interface Candidate {
   name: string;
   email: string;
   audio_source: string | null;
-  source_type: 'auto' | 'manual';
   source_type: 'auto' | 'manual' | 'scheduled';
   snapshot_url: string | null;
   assessment_link_id: string | null;
