@@ -196,6 +196,17 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                           <div className="text-sm text-gray-500 flex items-center">
                             <Mail className="h-3 w-3 mr-1" />
                             {assessment.candidate?.email || 'No email'}
+                            {assessment.candidate?.assessment_status && assessment.candidate.assessment_status !== 'completed' && (
+                              <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+                                assessment.candidate.assessment_status === 'pending' 
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : assessment.candidate.assessment_status === 'in_progress'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {assessment.candidate.assessment_status}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>

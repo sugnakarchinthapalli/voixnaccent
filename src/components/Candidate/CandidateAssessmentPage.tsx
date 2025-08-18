@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Mic, Square, Send, AlertCircle, CheckCircle, Clock, User, Mail } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Camera, Mic, Square, Send, AlertCircle, CheckCircle, Clock, User, Mail, Timer } from 'lucide-react';
 import { Button } from '../UI/Button';
 import { questionService } from '../../services/questionService';
 import { candidateSubmissionService } from '../../services/candidateSubmissionService';
 import { storageService } from '../../services/storageService';
-import { Question } from '../../types';
+import { supabase } from '../../lib/supabase';
+import { Question, Candidate } from '../../types';
 
 interface Snapshot {
   id: number;
@@ -13,12 +15,16 @@ interface Snapshot {
 }
 
 export function CandidateAssessmentPage() {
+  const { sessionId } = useParams<{ sessionId: string }>();
+  const navigate = useNavigate();
+  
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const firstSnapshotTimerRef = useRef<NodeJS.Timeout | null>(null);
   const secondSnapshotTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const questionTextRef = useRef<HTMLDivElement>(null);
   
   // Media state
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
@@ -31,19 +37,34 @@ export function CandidateAssessmentPage() {
   
   // Assessment state
   const [question, setQuestion] = useState<Question | null>(null);
-  const [candidateName, setCandidateName] = useState('');
-  const [candidateEmail, setCandidateEmail] = useState('');
+  const [candidateData, setCandidateData] = useState<Candidate | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string>('');
   const [loadingQuestion, setLoadingQuestion] = useState(true);
+  const [loadingCandidate, setLoadingCandidate] = useState(true);
+  
+  // Timer state
+  const [timeRemaining, setTimeRemaining] = useState(180); // 3 minutes in seconds
+  const [assessmentExpired, setAssessmentExpired] = useState(false);
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
+  
+  // Proctoring state
+  const [tabFocusLost, setTabFocusLost] = useState(false);
   
   // Constants
   const MAX_RECORDING_TIME = 120; // 2 minutes in seconds
+  const ASSESSMENT_DURATION = 180; // 3 minutes in seconds
 
   useEffect(() => {
+    if (!sessionId) {
+      setError('Invalid assessment link. Please contact your administrator.');
+      return;
+    }
+
+    initializeAssessment();
     initializeCamera();
-    fetchRandomQuestion();
+    setupProctoring();
     
     // Page navigation protection
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -73,7 +94,137 @@ export function CandidateAssessmentPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('popstate', handlePopState);
     };
-  }, []); // Only run once on mount
+  }, [sessionId]);
+
+  const initializeAssessment = async () => {
+    try {
+      console.log('🔍 Initializing assessment for session:', sessionId);
+      
+      // Fetch candidate data using session ID
+      const { data: candidate, error: candidateError } = await supabase
+        .from('candidates')
+        .select('*')
+        .eq('assessment_link_id', sessionId)
+        .single();
+
+      if (candidateError || !candidate) {
+        console.error('❌ Candidate not found:', candidateError);
+        setError('Invalid assessment link or assessment not found. Please contact your administrator.');
+        setLoadingCandidate(false);
+        return;
+      }
+
+      console.log('✅ Candidate found:', candidate);
+      setCandidateData(candidate);
+
+      // Check if assessment is already completed
+      if (candidate.assessment_status === 'completed') {
+        setError('This assessment has already been completed.');
+        setLoadingCandidate(false);
+        return;
+      }
+
+      // Check if assessment has expired
+      if (candidate.session_expires_at && new Date() > new Date(candidate.session_expires_at)) {
+        setError('This assessment link has expired. Please contact your administrator for a new link.');
+        setAssessmentExpired(true);
+        setLoadingCandidate(false);
+        return;
+      }
+
+      // Initialize timer
+      initializeTimer();
+      
+      // Update status to in_progress
+      await supabase
+        .from('candidates')
+        .update({ assessment_status: 'in_progress' })
+        .eq('id', candidate.id);
+
+      setLoadingCandidate(false);
+      
+      // Fetch random question
+      await fetchRandomQuestion();
+      
+    } catch (err) {
+      console.error('❌ Error initializing assessment:', err);
+      setError('Failed to initialize assessment. Please try again.');
+      setLoadingCandidate(false);
+    }
+  };
+
+  const initializeTimer = () => {
+    const storageKey = `assessmentStartTime_${sessionId}`;
+    const storedStartTime = localStorage.getItem(storageKey);
+    
+    let startTime: number;
+    
+    if (storedStartTime) {
+      startTime = parseInt(storedStartTime, 10);
+      console.log('📅 Found existing start time:', new Date(startTime));
+    } else {
+      startTime = Date.now();
+      localStorage.setItem(storageKey, startTime.toString());
+      console.log('📅 Set new start time:', new Date(startTime));
+    }
+    
+    setSessionStartTime(startTime);
+    
+    // Start countdown timer
+    const updateTimer = () => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const remaining = Math.max(0, ASSESSMENT_DURATION - elapsed);
+      
+      setTimeRemaining(remaining);
+      
+      if (remaining <= 0) {
+        console.log('⏰ Assessment time expired');
+        setAssessmentExpired(true);
+        localStorage.removeItem(storageKey);
+        return;
+      }
+      
+      setTimeout(updateTimer, 1000);
+    };
+    
+    updateTimer();
+  };
+
+  const setupProctoring = () => {
+    // Tab focus detection
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        console.log('🚨 Tab focus lost detected');
+        setTabFocusLost(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Disable text selection and copying for question text
+    const preventCopyEvents = (e: Event) => {
+      e.preventDefault();
+      return false;
+    };
+
+    const questionElement = questionTextRef.current;
+    if (questionElement) {
+      questionElement.addEventListener('copy', preventCopyEvents);
+      questionElement.addEventListener('cut', preventCopyEvents);
+      questionElement.addEventListener('selectstart', preventCopyEvents);
+      questionElement.addEventListener('contextmenu', preventCopyEvents);
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (questionElement) {
+        questionElement.removeEventListener('copy', preventCopyEvents);
+        questionElement.removeEventListener('cut', preventCopyEvents);
+        questionElement.removeEventListener('selectstart', preventCopyEvents);
+        questionElement.removeEventListener('contextmenu', preventCopyEvents);
+      }
+    };
+  };
 
   const fetchRandomQuestion = async () => {
     try {
@@ -128,19 +279,17 @@ export function CandidateAssessmentPage() {
   };
 
   const startRecording = async () => {
-    if (!mediaStream) {
-      setError('No media stream available');
+    if (!mediaStream || assessmentExpired) {
+      setError('Cannot start recording - assessment expired or no media stream available');
       return;
     }
 
     try {
       console.log('Starting audio recording...');
       
-      // Create audio-only stream for recording
       const audioTracks = mediaStream.getAudioTracks();
       const audioStream = new MediaStream(audioTracks);
       
-      // Try different MIME types
       const mimeTypes = [
         'audio/webm',
         'audio/mp4',
@@ -184,10 +333,9 @@ export function CandidateAssessmentPage() {
       setMediaRecorder(recorder);
       setIsRecording(true);
       setRecordingTime(0);
-      setSnapshots([]); // Reset snapshots
-      setError(''); // Clear any previous errors
+      setSnapshots([]);
+      setError('');
       
-      // Start timer with proper cleanup
       console.log('Starting recording timer...');
       const startTime = Date.now();
       
@@ -210,13 +358,11 @@ export function CandidateAssessmentPage() {
       // Schedule snapshots
       console.log('📸 Scheduling snapshots...');
       
-      // Take first snapshot after 5 seconds
       setTimeout(() => {
         console.log('📸 Time for first snapshot!');
         takeSnapshot('first');
       }, 5000);
       
-      // Take second snapshot after 20 seconds
       setTimeout(() => {
         console.log('📸 Time for second snapshot!');
         takeSnapshot('second');
@@ -236,22 +382,18 @@ export function CandidateAssessmentPage() {
       mediaRecorder.stop();
       setIsRecording(false);
       
-      // Clear all timers
       if (timerRef.current) {
         clearTimeout(timerRef.current);
-        timerRef.current = null;
         timerRef.current = null;
       }
       
       if (firstSnapshotTimerRef.current) {
         clearTimeout(firstSnapshotTimerRef.current);
         firstSnapshotTimerRef.current = null;
-        firstSnapshotTimerRef.current = null;
       }
       
       if (secondSnapshotTimerRef.current) {
         clearTimeout(secondSnapshotTimerRef.current);
-        secondSnapshotTimerRef.current = null;
         secondSnapshotTimerRef.current = null;
       }
       
@@ -270,7 +412,6 @@ export function CandidateAssessmentPage() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    // Check if video has loaded
     if (video.videoWidth === 0 || video.videoHeight === 0) {
       console.error('❌ Video not ready, dimensions:', video.videoWidth, 'x', video.videoHeight);
       return;
@@ -283,17 +424,14 @@ export function CandidateAssessmentPage() {
         return;
       }
       
-      // Set canvas size to match video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       
       console.log(`✅ Canvas set to: ${canvas.width}x${canvas.height}`);
       
-      // Draw the current video frame
       ctx.drawImage(video, 0, 0);
       console.log('✅ Video frame drawn to canvas');
       
-      // Convert canvas to image blob
       canvas.toBlob((blob) => {
         if (blob) {
           console.log(`✅ ${snapshotType} snapshot created! Size: ${blob.size} bytes`);
@@ -320,14 +458,8 @@ export function CandidateAssessmentPage() {
   };
 
   const handleSubmitAssessment = async () => {
-    // Validation
-    if (!candidateName.trim()) {
-      setError('Please enter your name');
-      return;
-    }
-    
-    if (!candidateEmail.trim() || !candidateEmail.includes('@')) {
-      setError('Please enter a valid email address');
+    if (!candidateData) {
+      setError('Candidate data not found');
       return;
     }
     
@@ -346,6 +478,11 @@ export function CandidateAssessmentPage() {
       return;
     }
 
+    if (assessmentExpired) {
+      setError('Assessment time has expired. Cannot submit.');
+      return;
+    }
+
     setSubmitting(true);
     setError('');
 
@@ -356,7 +493,7 @@ export function CandidateAssessmentPage() {
       console.log('Uploading audio file...');
       const audioUrl = await storageService.uploadAudioFile(
         new File([audioBlob], `recording-${Date.now()}.webm`, { type: audioBlob.type }),
-        true // Use service role to bypass RLS
+        true
       );
       console.log('Audio uploaded:', audioUrl);
       
@@ -365,20 +502,39 @@ export function CandidateAssessmentPage() {
       const snapshotUrl = await storageService.uploadImageFile(
         snapshots[0].blob,
         `snapshot-${Date.now()}.jpg`,
-        true // Use service role to bypass RLS
+        true
       );
       console.log('Snapshot uploaded:', snapshotUrl);
       
-      // Create candidate submission using service role
-      console.log('Creating candidate submission...');
-      const { candidate, queueItem } = await candidateSubmissionService.createCandidateSubmission({
-        name: candidateName.trim(),
-        email: candidateEmail.trim(),
-        audio_source: audioUrl,
-        snapshot_url: snapshotUrl,
-        question_id: question?.id
-      });
-      console.log('Candidate submission completed:', { candidate, queueItem });
+      // Prepare proctoring flags
+      const proctoringFlags = {
+        tab_focus_lost: tabFocusLost,
+        session_id: sessionId,
+        recording_duration: recordingTime,
+        snapshots_captured: snapshots.length
+      };
+      
+      // Update candidate with audio and complete assessment
+      console.log('Updating candidate with assessment data...');
+      const { error: updateError } = await supabase
+        .from('candidates')
+        .update({
+          audio_source: audioUrl,
+          snapshot_url: snapshotUrl,
+          assessment_status: 'completed',
+          proctoring_flags: proctoringFlags
+        })
+        .eq('id', candidateData.id);
+
+      if (updateError) {
+        throw new Error(`Failed to update candidate: ${updateError.message}`);
+      }
+
+      // Process assessment using existing service
+      await candidateSubmissionService.processExistingCandidate(candidateData.id, question.id);
+      
+      // Clear timer from localStorage
+      localStorage.removeItem(`assessmentStartTime_${sessionId}`);
       
       setSubmitted(true);
       
@@ -425,6 +581,41 @@ export function CandidateAssessmentPage() {
     console.log('🧹 Cleanup completed');
   };
 
+  // Loading state
+  if (loadingCandidate || loadingQuestion) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading assessment...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Assessment expired state
+  if (assessmentExpired) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full text-center space-y-6">
+          <div className="mx-auto h-16 w-16 flex items-center justify-center bg-red-100 rounded-full">
+            <Timer className="h-8 w-8 text-red-600" />
+          </div>
+          
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Assessment Expired</h2>
+            <p className="text-gray-600 mb-4">
+              The 3-minute time limit for this assessment has been reached.
+            </p>
+            <p className="text-sm text-gray-500">
+              Please contact your administrator for a new assessment link if needed.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Success page
   if (submitted) {
     return (
@@ -437,19 +628,12 @@ export function CandidateAssessmentPage() {
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Assessment Submitted!</h2>
             <p className="text-gray-600 mb-4">
-              Thank you, {candidateName}! Your voice assessment has been submitted successfully.
+              Thank you, {candidateData?.name}! Your voice assessment has been submitted successfully.
             </p>
             <p className="text-sm text-gray-500">
-              Our AI system will process your response and you'll receive feedback via email at {candidateEmail}.
+              Our AI system will process your response and you'll receive feedback via email at {candidateData?.email}.
             </p>
           </div>
-          
-          <Button
-            onClick={() => window.location.reload()}
-            variant="outline"
-          >
-            Take Another Assessment
-          </Button>
         </div>
       </div>
     );
@@ -458,10 +642,24 @@ export function CandidateAssessmentPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50 p-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
+        {/* Header with Timer */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Voice Assessment</h1>
-          <p className="text-gray-600">Complete your voice assessment by answering the question below</p>
+          <p className="text-gray-600 mb-4">
+            Welcome {candidateData?.name}! Complete your voice assessment by answering the question below
+          </p>
+          
+          {/* Assessment Timer */}
+          <div className={`inline-flex items-center space-x-2 px-4 py-2 rounded-lg font-mono text-lg font-bold ${
+            timeRemaining <= 60 
+              ? 'bg-red-100 text-red-800 border border-red-200' 
+              : timeRemaining <= 120 
+              ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+              : 'bg-blue-100 text-blue-800 border border-blue-200'
+          }`}>
+            <Timer className="h-5 w-5" />
+            <span>Time Remaining: {formatTime(timeRemaining)}</span>
+          </div>
         </div>
 
         {/* Error Display */}
@@ -479,13 +677,12 @@ export function CandidateAssessmentPage() {
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Assessment Question</h2>
             
-            {loadingQuestion ? (
-              <div className="animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            ) : question ? (
-              <div className="bg-blue-50 p-4 rounded-lg">
+            {question ? (
+              <div 
+                ref={questionTextRef}
+                className="bg-blue-50 p-4 rounded-lg select-none"
+                style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none' }}
+              >
                 <p className="text-gray-700 leading-relaxed">{question.text}</p>
                 <div className="mt-3 flex items-center text-xs text-blue-600">
                   <Clock className="h-3 w-3 mr-1" />
@@ -532,7 +729,6 @@ export function CandidateAssessmentPage() {
                   )}
                 </div>
                 
-                {/* Hidden canvas for snapshots */}
                 <canvas ref={canvasRef} className="hidden" />
               </div>
 
@@ -560,7 +756,7 @@ export function CandidateAssessmentPage() {
                   <div className="flex space-x-3">
                     <Button
                       onClick={startRecording}
-                      disabled={!cameraReady || isRecording || !question || submitting}
+                      disabled={!cameraReady || isRecording || !question || submitting || assessmentExpired}
                       className="flex items-center space-x-2"
                     >
                       <Mic className="h-4 w-4" />
@@ -594,46 +790,8 @@ export function CandidateAssessmentPage() {
               </div>
             </div>
 
-            {/* Right Column - Form and Identity Verification */}
+            {/* Right Column - Identity Verification and Submit */}
             <div className="space-y-6">
-              {/* Candidate Information */}
-              <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <User className="h-5 w-5 mr-2" />
-                  Your Information
-                </h2>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={candidateName}
-                      onChange={(e) => setCandidateName(e.target.value)}
-                      placeholder="Enter your full name"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      disabled={submitting}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address *
-                    </label>
-                    <input
-                      type="email"
-                      value={candidateEmail}
-                      onChange={(e) => setCandidateEmail(e.target.value)}
-                      placeholder="your.email@example.com"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      disabled={submitting}
-                    />
-                  </div>
-                </div>
-              </div>
-
               {/* Identity Verification Notice */}
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <div className="flex items-start">
@@ -655,10 +813,25 @@ export function CandidateAssessmentPage() {
                 </div>
               </div>
 
+              {/* Proctoring Status */}
+              {tabFocusLost && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+                    <div>
+                      <h3 className="font-medium text-red-800">Proctoring Alert</h3>
+                      <p className="text-sm text-red-700">
+                        Tab focus was lost during this session. This has been recorded for review.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Submit Button */}
               <Button
                 onClick={handleSubmitAssessment}
-                disabled={!audioBlob || !candidateName.trim() || !candidateEmail.trim() || submitting}
+                disabled={!audioBlob || submitting || assessmentExpired}
                 loading={submitting}
                 className="w-full flex items-center justify-center space-x-2"
                 size="lg"

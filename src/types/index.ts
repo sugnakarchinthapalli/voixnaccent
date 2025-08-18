@@ -2,9 +2,14 @@ export interface Candidate {
   id: string;
   name: string;
   email: string;
-  audio_source: string;
+  audio_source: string | null;
   source_type: 'auto' | 'manual';
+  source_type: 'auto' | 'manual' | 'scheduled';
   snapshot_url: string | null;
+  assessment_link_id: string | null;
+  assessment_status: 'pending' | 'in_progress' | 'completed' | 'expired';
+  proctoring_flags: Record<string, any> | null;
+  session_expires_at: string | null;
   created_at: string;
   updated_at: string;
 }
