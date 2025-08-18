@@ -16,12 +16,10 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [showGenerate, setShowGenerate] = useState(false);
-  const [showGenerate, setShowGenerate] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     assessedBy: '',
     overallGrade: '',
-    framework: '',
     framework: '',
     dateFrom: getFirstDayOfCurrentMonth(),
     dateTo: getLastDayOfCurrentMonth()
@@ -319,15 +317,6 @@ export function Dashboard() {
         )}
 
         {/* Generate Assessment Modal */}
-        {showGenerate && (
-          <GenerateAssessment
-            onClose={() => setShowGenerate(false)}
-            onSuccess={() => {
-              setShowGenerate(false);
-              loadAssessments();
-            }}
-          />
-        )}
         {showGenerate && (
           <GenerateAssessment
             onClose={() => setShowGenerate(false)}
