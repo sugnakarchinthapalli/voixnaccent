@@ -184,3 +184,5 @@ export class CandidateSubmissionService {
     return { pending, processing, failed, position: pending > 0 ? 1 : null };
   }
 }
+
+export const candidateSubmissionService = new CandidateSubmissionService();
