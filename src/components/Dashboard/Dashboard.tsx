@@ -3,7 +3,6 @@ import { Plus, Download, Search, Filter } from 'lucide-react';
 import { AssessmentTable } from './AssessmentTable';
 import { ManualUpload } from './ManualUpload';
 import { GenerateAssessment } from './GenerateAssessment';
-import { GenerateAssessment } from './GenerateAssessment';
 import { QueueStatus } from './QueueStatus';
 import { Button } from '../UI/Button';
 import { assessmentService } from '../../services/assessmentService';

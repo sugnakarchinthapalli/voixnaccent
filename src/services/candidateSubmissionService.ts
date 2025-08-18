@@ -183,7 +183,6 @@ export class CandidateSubmissionService {
     
     return { pending, processing, failed, position: pending > 0 ? 1 : null };
   }
-}
 
   async processExistingCandidate(candidateId: string, questionId?: string): Promise<void> {
     try {
@@ -251,6 +250,7 @@ export class CandidateSubmissionService {
       throw error;
     }
   }
+}
 
 export const candidateSubmissionService = new CandidateSubmissionService();
 
