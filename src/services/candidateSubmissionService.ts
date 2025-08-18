@@ -185,5 +185,72 @@ export class CandidateSubmissionService {
   }
 }
 
+  async processExistingCandidate(candidateId: string, questionId?: string): Promise<void> {
+    try {
+      console.log('🚀 Processing existing candidate assessment...');
+      
+      // Fetch candidate data
+      const { data: candidate, error: candidateError } = await supabaseServiceRole
+        .from('candidates')
+        .select('*')
+        .eq('id', candidateId)
+        .single();
+
+      if (candidateError || !candidate) {
+        throw new Error(`Failed to fetch candidate: ${candidateError?.message || 'Not found'}`);
+      }
+
+      if (!candidate.audio_source) {
+        throw new Error('No audio source found for candidate');
+      }
+
+      console.log('🤖 Starting CEFR assessment for existing candidate...');
+      const cefrResult: CEFRAssessmentResult = await assessAudioWithCEFR(candidate.audio_source);
+      console.log('🎯 CEFR assessment completed:', {
+        level: cefrResult.overall_cefr_level,
+        hasAnalysis: !!cefrResult.detailed_analysis,
+        hasStrengths: !!cefrResult.specific_strengths,
+        hasImprovements: !!cefrResult.areas_for_improvement,
+        hasJustification: !!cefrResult.score_justification
+      });
+      
+      // Map CEFR level to traditional grade for backward compatibility
+      const overallGrade = mapCEFRToGrade(cefrResult.overall_cefr_level);
+
+      // Save assessment directly using service role
+      console.log('💾 Saving CEFR assessment for existing candidate...');
+      const { data: assessment, error: assessmentError } = await supabaseServiceRole
+        .from('assessments')
+        .insert({
+          candidate_id: candidateId,
+          assessment_scores: {}, // Empty - using CEFR framework
+          overall_grade: overallGrade,
+          ai_feedback: null, // Using detailed_analysis instead
+          assessed_by: 'Candidate Submission',
+          processing_status: 'completed',
+          question_id: questionId || null,
+          // CEFR framework fields
+          overall_cefr_level: cefrResult.overall_cefr_level,
+          detailed_analysis: cefrResult.detailed_analysis,
+          specific_strengths: cefrResult.specific_strengths,
+          areas_for_improvement: cefrResult.areas_for_improvement,
+          score_justification: cefrResult.score_justification
+        })
+        .select()
+        .single();
+
+      if (assessmentError) {
+        console.error('❌ Error saving assessment:', assessmentError);
+        throw new Error(`Failed to save assessment: ${assessmentError.message}`);
+      }
+
+      console.log('✅ Assessment saved successfully for existing candidate:', assessment);
+      
+    } catch (error) {
+      console.error('💥 Processing existing candidate failed:', error);
+      throw error;
+    }
+  }
+
 export const candidateSubmissionService = new CandidateSubmissionService();
 

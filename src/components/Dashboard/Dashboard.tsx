@@ -3,6 +3,7 @@ import { Plus, Download, Search, Filter } from 'lucide-react';
 import { AssessmentTable } from './AssessmentTable';
 import { ManualUpload } from './ManualUpload';
 import { GenerateAssessment } from './GenerateAssessment';
+import { GenerateAssessment } from './GenerateAssessment';
 import { QueueStatus } from './QueueStatus';
 import { Button } from '../UI/Button';
 import { assessmentService } from '../../services/assessmentService';
@@ -15,10 +16,12 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [showGenerate, setShowGenerate] = useState(false);
+  const [showGenerate, setShowGenerate] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     assessedBy: '',
     overallGrade: '',
+    framework: '',
     framework: '',
     dateFrom: getFirstDayOfCurrentMonth(),
     dateTo: getLastDayOfCurrentMonth()
@@ -98,6 +101,14 @@ export function Dashboard() {
       );
     }
 
+    if (filters.framework) {
+      if (filters.framework === 'CEFR') {
+        filtered = filtered.filter(assessment => assessment.overall_cefr_level);
+      } else if (filters.framework === 'Competency') {
+        filtered = filtered.filter(assessment => !assessment.overall_cefr_level);
+      }
+    }
+
     if (filters.dateFrom) {
       filtered = filtered.filter(assessment => 
         new Date(assessment.assessment_date) >= new Date(filters.dateFrom)
@@ -122,6 +133,7 @@ export function Dashboard() {
     setFilters({
       assessedBy: '',
       overallGrade: '',
+      framework: '',
       framework: '',
       dateFrom: getFirstDayOfCurrentMonth(),
       dateTo: getLastDayOfCurrentMonth()
@@ -307,6 +319,15 @@ export function Dashboard() {
         )}
 
         {/* Generate Assessment Modal */}
+        {showGenerate && (
+          <GenerateAssessment
+            onClose={() => setShowGenerate(false)}
+            onSuccess={() => {
+              setShowGenerate(false);
+              loadAssessments();
+            }}
+          />
+        )}
         {showGenerate && (
           <GenerateAssessment
             onClose={() => setShowGenerate(false)}
