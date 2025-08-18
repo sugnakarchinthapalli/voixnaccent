@@ -187,5 +187,3 @@ export class CandidateSubmissionService {
 
 export const candidateSubmissionService = new CandidateSubmissionService();
 
-
-export { candidateSubmissionService }
