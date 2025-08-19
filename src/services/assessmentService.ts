@@ -241,6 +241,43 @@ export class AssessmentService {
       // Map CEFR level to traditional grade for backward compatibility
       const overallGrade = mapCEFRToGrade(cefrResult.overall_cefr_level);
 
+      // Update candidate's proctoring flags with dual audio detection
+      console.log('📝 Updating candidate proctoring flags...');
+      try {
+        // Fetch current proctoring flags
+        const { data: currentCandidate, error: fetchError } = await supabase
+          .from('candidates')
+          .select('proctoring_flags')
+          .eq('id', candidate.id)
+          .single();
+
+        if (fetchError) {
+          console.warn('Could not fetch current proctoring flags:', fetchError);
+        }
+
+        // Merge existing flags with new dual audio detection
+        const updatedProctoringFlags = {
+          ...(currentCandidate?.proctoring_flags || {}),
+          dual_audio_detected: cefrResult.dual_audio_detected || false,
+          ai_analysis_timestamp: new Date().toISOString()
+        };
+
+        // Update candidate record with enhanced proctoring flags
+        const { error: updateError } = await supabase
+          .from('candidates')
+          .update({ proctoring_flags: updatedProctoringFlags })
+          .eq('id', candidate.id);
+
+        if (updateError) {
+          console.warn('Could not update proctoring flags:', updateError);
+        } else {
+          console.log('✅ Proctoring flags updated successfully');
+        }
+      } catch (error) {
+        console.warn('Error updating proctoring flags:', error);
+        // Don't fail the entire assessment for proctoring flag update issues
+      }
+
       // All new assessments use CEFR framework
       // Determine who assessed this based on the candidate source
       let assessedBy = 'Candidate Submission'; // Default for candidate submissions

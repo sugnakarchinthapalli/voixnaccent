@@ -65,6 +65,16 @@ export interface CompetencyScores {
   };
 }
 
+// Enhanced CEFR Assessment Result with dual audio detection
+export interface CEFRAssessmentResult {
+  overall_cefr_level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+  detailed_analysis: string;
+  specific_strengths: string;
+  areas_for_improvement: string;
+  score_justification: string;
+  dual_audio_detected?: boolean; // New field for dual audio detection
+}
+
 export interface QueueItem {
   id: string;
   candidate_id: string;

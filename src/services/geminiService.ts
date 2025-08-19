@@ -1,10 +1,5 @@
-export interface CEFRAssessmentResult {
-  overall_cefr_level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
-  detailed_analysis: string;
-  specific_strengths: string;
-  areas_for_improvement: string;
-  score_justification: string;
-}
+// Import the interface from types
+import type { CEFRAssessmentResult } from '../types';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -14,8 +9,25 @@ const MAX_RETRIES = 3;
 const BASE_DELAY = 2000; // 2 seconds
 const MAX_DELAY = 30000; // 30 seconds
 
+/**
+ * Enhanced CEFR Assessment Prompt with Strict Evaluation and Dual Audio Detection
+ * 
+ * This prompt has been specifically designed to:
+ * 1. Apply stricter CEFR evaluation criteria
+ * 2. Penalize short or incomplete responses
+ * 3. Detect multiple speakers or background voices
+ * 4. Provide comprehensive assessment feedback
+ */
 const CEFR_ASSESSMENT_PROMPT = `
 You are an expert language assessment AI specializing in evaluating spoken English using the CEFR (Common European Framework of Reference for Languages) framework. Analyze the provided audio recording and assess the speaker's proficiency level based on the CEFR Qualitative Aspects of Spoken Language Use.
+
+**CRITICAL: STRICT EVALUATION REQUIREMENTS**
+- Apply EXTREMELY STRINGENT criteria for each CEFR level
+- A response must demonstrate CONSISTENT performance across ALL competency areas to achieve a level
+- Short responses (under 60 seconds) should be heavily penalized unless they demonstrate exceptional quality
+- Incomplete or superficial answers cannot achieve levels above A2, regardless of fluency
+- Require CLEAR EVIDENCE of complex language structures for B2+ levels
+- Do not award high levels based on fluency alone - content depth and accuracy are equally important
 
 **Assessment Framework:**
 Use the CEFR Qualitative Aspects of Spoken Language Use (Table 3, CEFR 3.3) which evaluates:
@@ -25,31 +37,42 @@ Use the CEFR Qualitative Aspects of Spoken Language Use (Table 3, CEFR 3.3) whic
 - **Interaction**: Turn-taking and conversational management (assess based on monologue delivery)
 - **Coherence**: Logical organization and linking of ideas
 
-**CEFR Scoring Criteria (Apply Stringently):**
-- **C2 (Mastery)**: Near-native proficiency with sophisticated language use, minimal errors, natural fluency, complex ideas expressed effortlessly
-- **C1 (Proficiency)**: Advanced level with complex language structures, occasional minor errors, good fluency, can handle abstract topics
-- **B2 (Upper-Intermediate)**: Independent user with good range, some errors that don't impede communication, generally fluent
-- **B1 (Intermediate)**: Basic independent user, limited range, noticeable errors but generally comprehensible, some hesitation
-- **A2 (Elementary)**: Basic user with simple language, frequent errors, limited vocabulary, significant hesitation
-- **A1 (Beginner)**: Very basic language use, many errors, very limited vocabulary and structures, frequent breakdowns
+**CEFR Scoring Criteria (EXTREMELY STRICT APPLICATION):**
+- **C2 (Mastery)**: Near-native proficiency with sophisticated language use, virtually no errors, effortless expression of complex abstract concepts, extensive vocabulary, perfect coherence. REQUIRES: 90+ seconds of sustained, sophisticated discourse.
+- **C1 (Proficiency)**: Advanced level with complex language structures, rare minor errors, excellent fluency, handles abstract topics with ease. REQUIRES: 75+ seconds with clear evidence of advanced structures and vocabulary.
+- **B2 (Upper-Intermediate)**: Independent user with good range, occasional errors that don't impede communication, generally fluent, can express opinions and arguments clearly. REQUIRES: 60+ seconds with clear argumentation and varied vocabulary.
+- **B1 (Intermediate)**: Basic independent user, limited range, noticeable errors but generally comprehensible, some hesitation, can handle familiar topics. REQUIRES: 45+ seconds with basic coherent expression.
+- **A2 (Elementary)**: Basic user with simple language, frequent errors, limited vocabulary, significant hesitation, can handle very simple topics only. MAXIMUM for responses under 30 seconds regardless of quality.
+- **A1 (Beginner)**: Very basic language use, many errors, very limited vocabulary and structures, frequent breakdowns, minimal communication ability.
 
-**Assessment Guidelines:**
-- Be stringent in scoring - require clear evidence of consistent performance at each level
-- Consider the candidate's weakest area when determining overall level
-- Provide constructive, actionable feedback
-- Reference specific examples from the recording when possible
-- Focus on communication effectiveness while noting accuracy issues
+**DUAL AUDIO DETECTION:**
+Carefully analyze the audio for the presence of multiple distinct speakers or clear background voices:
+- Listen for any voices other than the primary speaker
+- Identify clear instances of other people speaking, not just background noise
+- Flag conversations, prompting, or assistance from others
+- Ignore minor background sounds, coughs, or unclear mumbling
+- Set dual_audio_detected to true ONLY if there are clear, distinct additional voices
 
-**Required Output Format (JSON only):**
+**Enhanced Assessment Guidelines:**
+- Apply MAXIMUM STRICTNESS in scoring - err on the side of lower levels
+- Response length MUST match the complexity expected for each CEFR level
+- Consider the candidate's WEAKEST area as the determining factor for overall level
+- Penalize heavily for: incomplete responses, lack of depth, repetitive language, excessive hesitation
+- Reward only: sustained discourse, varied vocabulary, complex structures, clear argumentation
+- Provide specific, actionable feedback with concrete examples from the recording
+- Focus on both communication effectiveness AND linguistic accuracy
+
+**REQUIRED OUTPUT FORMAT (JSON only):**
 {
   "overall_cefr_level": "[A1/A2/B1/B2/C1/C2]",
   "detailed_analysis": "Comprehensive analysis of at least 100 characters covering vocabulary range and appropriateness, grammatical accuracy and complexity, pronunciation and intelligibility, fluency and natural speech patterns, coherence and organization of ideas.",
   "specific_strengths": "What the candidate does well in their spoken English performance.",
   "areas_for_improvement": "Concrete, actionable suggestions for language development.",
-  "score_justification": "Clear explanation of why this specific CEFR level was assigned, referencing specific evidence from the recording."
+  "score_justification": "Clear explanation of why this specific CEFR level was assigned, referencing specific evidence from the recording and response length considerations.",
+  "dual_audio_detected": false
 }
 
-Analyze the audio recording and provide a comprehensive CEFR assessment with detailed, professional feedback. Be precise and evidence-based in your evaluation.
+IMPORTANT: Analyze the audio recording and provide a comprehensive, STRICTLY EVALUATED CEFR assessment with detailed, professional feedback. Be precise, evidence-based, and unforgiving in your evaluation standards.
 `;
 
 export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessmentResult> {
@@ -147,9 +170,15 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
       const assessmentResult = JSON.parse(jsonMatch[0]);
       
       // Validate the response structure
-      const requiredFields = ['overall_cefr_level', 'detailed_analysis', 'specific_strengths', 'areas_for_improvement', 'score_justification'];
+      const requiredFields = ['overall_cefr_level', 'detailed_analysis', 'specific_strengths', 'areas_for_improvement', 'score_justification', 'dual_audio_detected'];
       for (const field of requiredFields) {
-        if (!assessmentResult[field] || typeof assessmentResult[field] !== 'string') {
+        // Special handling for dual_audio_detected which is boolean
+        if (field === 'dual_audio_detected') {
+          if (typeof assessmentResult[field] !== 'boolean') {
+            console.warn(`dual_audio_detected field missing or invalid, defaulting to false`);
+            assessmentResult[field] = false;
+          }
+        } else if (!assessmentResult[field] || typeof assessmentResult[field] !== 'string') {
           console.error(`Invalid assessment result: missing or invalid ${field}`, assessmentResult);
           throw new Error(`Invalid assessment result: missing or invalid ${field}`);
         }
@@ -168,6 +197,8 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
         hasStrengths: !!assessmentResult.specific_strengths,
         hasImprovements: !!assessmentResult.areas_for_improvement,
         hasJustification: !!assessmentResult.score_justification
+        hasJustification: !!assessmentResult.score_justification,
+        dualAudioDetected: assessmentResult.dual_audio_detected
       });
       
       return assessmentResult;

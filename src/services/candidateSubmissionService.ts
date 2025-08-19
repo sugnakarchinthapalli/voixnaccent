@@ -70,6 +70,43 @@ export class CandidateSubmissionService {
       // Map CEFR level to traditional grade for backward compatibility
       const overallGrade = mapCEFRToGrade(cefrResult.overall_cefr_level);
 
+      // Update candidate's proctoring flags with dual audio detection
+      console.log('📝 Updating candidate proctoring flags with dual audio detection...');
+      try {
+        // Fetch current proctoring flags
+        const { data: currentCandidate, error: fetchError } = await supabaseServiceRole
+          .from('candidates')
+          .select('proctoring_flags')
+          .eq('id', candidate.id)
+          .single();
+
+        if (fetchError) {
+          console.warn('Could not fetch current proctoring flags:', fetchError);
+        }
+
+        // Merge existing flags with new dual audio detection
+        const updatedProctoringFlags = {
+          ...(currentCandidate?.proctoring_flags || {}),
+          dual_audio_detected: cefrResult.dual_audio_detected || false,
+          ai_analysis_timestamp: new Date().toISOString()
+        };
+
+        // Update candidate record with enhanced proctoring flags
+        const { error: updateError } = await supabaseServiceRole
+          .from('candidates')
+          .update({ proctoring_flags: updatedProctoringFlags })
+          .eq('id', candidate.id);
+
+        if (updateError) {
+          console.warn('Could not update proctoring flags:', updateError);
+        } else {
+          console.log('✅ Proctoring flags updated successfully');
+        }
+      } catch (error) {
+        console.warn('Error updating proctoring flags:', error);
+        // Don't fail the entire assessment for proctoring flag update issues
+      }
+
       // Save assessment directly using service role
       console.log('💾 Saving CEFR assessment...');
       const { data: assessment, error: assessmentError } = await supabaseServiceRole
@@ -224,6 +261,43 @@ export class CandidateSubmissionService {
       
       // Convert CEFR level to color-coded grade system
       const overallGrade = mapCEFRToGrade(cefrResult.overall_cefr_level);
+
+      // Update candidate's proctoring flags with dual audio detection
+      console.log('📝 Updating existing candidate proctoring flags...');
+      try {
+        // Fetch current proctoring flags
+        const { data: currentCandidate, error: fetchError } = await supabaseServiceRole
+          .from('candidates')
+          .select('proctoring_flags')
+          .eq('id', candidateId)
+          .single();
+
+        if (fetchError) {
+          console.warn('Could not fetch current proctoring flags:', fetchError);
+        }
+
+        // Merge existing flags with new dual audio detection
+        const updatedProctoringFlags = {
+          ...(currentCandidate?.proctoring_flags || {}),
+          dual_audio_detected: cefrResult.dual_audio_detected || false,
+          ai_analysis_timestamp: new Date().toISOString()
+        };
+
+        // Update candidate record with enhanced proctoring flags
+        const { error: updateError } = await supabaseServiceRole
+          .from('candidates')
+          .update({ proctoring_flags: updatedProctoringFlags })
+          .eq('id', candidateId);
+
+        if (updateError) {
+          console.warn('Could not update proctoring flags:', updateError);
+        } else {
+          console.log('✅ Existing candidate proctoring flags updated successfully');
+        }
+      } catch (error) {
+        console.warn('Error updating proctoring flags for existing candidate:', error);
+        // Don't fail the entire assessment for proctoring flag update issues
+      }
 
       // Create assessment record in database
       console.log('💾 Saving CEFR assessment for existing candidate...');

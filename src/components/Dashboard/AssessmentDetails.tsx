@@ -1,8 +1,9 @@
 import React from 'react';
-import { X, User, Calendar, Mic, Mail, ExternalLink, Download } from 'lucide-react';
+import { X, User, Calendar, Mic, Mail, ExternalLink, Download, AlertTriangle, Users, Eye, EyeOff } from 'lucide-react';
 import { Assessment } from '../../types';
 import { Button } from '../UI/Button';
 import { exportAssessmentToPDF } from '../../utils/pdfExport';
+import { supabase } from '../../lib/supabase';
 
 interface AssessmentDetailsProps {
   assessment: Assessment;
@@ -20,6 +21,56 @@ const cefrLevelDescriptions = {
 
 export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProps) {
   const [exportingPDF, setExportingPDF] = React.useState(false);
+  const [updatingFlags, setUpdatingFlags] = React.useState(false);
+  const [proctoringFlags, setProctoringFlags] = React.useState(
+    assessment.candidate?.proctoring_flags || {}
+  );
+
+  /**
+   * Handles the removal of the dual audio detection flag
+   * This allows assessors to manually override false positives
+   */
+  const handleRemoveDualAudioFlag = async () => {
+    if (!assessment.candidate?.id) {
+      console.error('No candidate ID available');
+      return;
+    }
+
+    setUpdatingFlags(true);
+    try {
+      console.log('🔄 Removing dual audio flag for candidate:', assessment.candidate.id);
+      
+      // Update the proctoring flags to remove the dual audio detection
+      const updatedFlags = {
+        ...proctoringFlags,
+        dual_audio_detected: false,
+        manual_override_timestamp: new Date().toISOString(),
+        manual_override_by: 'assessor' // Could be enhanced to include actual user email
+      };
+
+      // Update in Supabase
+      const { error } = await supabase
+        .from('candidates')
+        .update({ proctoring_flags: updatedFlags })
+        .eq('id', assessment.candidate.id);
+
+      if (error) {
+        console.error('Error updating proctoring flags:', error);
+        alert('Failed to update proctoring flags. Please try again.');
+        return;
+      }
+
+      // Update local state
+      setProctoringFlags(updatedFlags);
+      console.log('✅ Dual audio flag removed successfully');
+      
+    } catch (error) {
+      console.error('Error removing dual audio flag:', error);
+      alert('An error occurred while updating the flag. Please try again.');
+    } finally {
+      setUpdatingFlags(false);
+    }
+  };
 
   const getCEFRColor = (level: string) => {
     switch (level) {
@@ -88,6 +139,82 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
         </div>
 
         <div className="p-6 space-y-8">
+          {/* Proctoring Information Section */}
+          {(proctoringFlags.tab_focus_lost || proctoringFlags.dual_audio_detected) && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-yellow-800 mb-4 flex items-center">
+                <AlertTriangle className="h-5 w-5 mr-2" />
+                Proctoring Alerts
+              </h3>
+              <div className="space-y-3">
+                {/* Tab Focus Lost Alert */}
+                {proctoringFlags.tab_focus_lost && (
+                  <div className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-md">
+                    <div className="flex items-center">
+                      <Eye className="h-4 w-4 text-orange-600 mr-2" />
+                      <div>
+                        <p className="text-sm font-medium text-orange-800">Tab Focus Lost</p>
+                        <p className="text-xs text-orange-700">
+                          Candidate switched tabs or minimized window during assessment
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Dual Audio Detection Alert */}
+                {proctoringFlags.dual_audio_detected && (
+                  <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-md">
+                    <div className="flex items-center">
+                      <Users className="h-4 w-4 text-red-600 mr-2" />
+                      <div>
+                        <p className="text-sm font-medium text-red-800">Dual Audio Detected</p>
+                        <p className="text-xs text-red-700">
+                          AI detected multiple voices or background speech in the recording
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        onClick={handleAudioClick}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center space-x-1 text-xs"
+                      >
+                        <Mic className="h-3 w-3" />
+                        <span>Listen</span>
+                      </Button>
+                      <Button
+                        onClick={handleRemoveDualAudioFlag}
+                        loading={updatingFlags}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center space-x-1 text-xs text-red-600 hover:text-red-700"
+                      >
+                        <EyeOff className="h-3 w-3" />
+                        <span>Remove Flag</span>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Proctoring Metadata */}
+              {proctoringFlags.ai_analysis_timestamp && (
+                <div className="mt-4 pt-3 border-t border-yellow-200">
+                  <p className="text-xs text-yellow-700">
+                    AI Analysis: {new Date(proctoringFlags.ai_analysis_timestamp).toLocaleString()}
+                    {proctoringFlags.manual_override_timestamp && (
+                      <span className="ml-2">
+                        • Manual Override: {new Date(proctoringFlags.manual_override_timestamp).toLocaleString()}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Candidate Information */}
           <div className="bg-gray-50 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
