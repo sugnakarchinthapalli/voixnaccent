@@ -212,22 +212,24 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center text-sm text-gray-900">
                       <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                      {new Date(assessment.assessment_date).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                      {assessment.processing_status === 'pending' || assessment.processing_status === 'in_progress' || assessment.processing_status === 'expired' ? (
+                        <span className="text-gray-500 italic">Awaiting Assessment</span>
+                      ) : (
+                        new Date(assessment.assessment_date).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {assessment.processing_status === 'pending' || assessment.processing_status === 'expired' ? (
+                    {assessment.processing_status === 'pending' || assessment.processing_status === 'in_progress' || assessment.processing_status === 'expired' ? (
                       // Scheduled assessment - no result yet
                       <div className="flex items-center justify-center">
-                        <span className="text-sm text-gray-500 italic">
-                          {assessment.processing_status === 'expired' ? 'Link Expired' : 'Awaiting Submission'}
-                        </span>
+                        <span className="text-sm text-gray-500 font-medium">-</span>
                       </div>
                     ) : assessment.overall_cefr_level ? (
                       // CEFR Assessment
@@ -257,8 +259,8 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    {assessment.processing_status === 'pending' || assessment.processing_status === 'expired' ? (
-                      <span className="text-sm font-medium text-purple-700">Scheduled</span>
+                    {assessment.processing_status === 'pending' || assessment.processing_status === 'in_progress' || assessment.processing_status === 'expired' ? (
+                      <span className="text-sm font-medium text-blue-700">CEFR</span>
                     ) : assessment.overall_cefr_level ? (
                       <span className="text-sm font-medium text-blue-700">CEFR</span>
                     ) : (
@@ -267,30 +269,26 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      assessment.assessed_by === 'Form Response' 
+                      assessment.assessed_by === 'Form Response' || assessment.assessed_by === 'Scheduled Assessment'
                         ? 'bg-blue-100 text-blue-800'
                         : assessment.assessed_by === 'Candidate Submission'
                         ? 'bg-purple-100 text-purple-800'
-                        : assessment.candidate?.source_type === 'scheduled'
-                        ? 'bg-orange-100 text-orange-800'
                         : 'bg-green-100 text-green-800'
                     }`}>
-                      {assessment.candidate?.source_type === 'scheduled' && assessment.assessed_by === 'Candidate Submission' 
-                        ? 'Scheduled Link' 
+                      {assessment.candidate?.source_type === 'scheduled' && assessment.processing_status !== 'completed'
+                        ? 'Candidate Submission'
                         : getDisplayAssessedBy(assessment.assessed_by)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
-                      {assessment.processing_status !== 'pending' && assessment.processing_status !== 'expired' && (
-                        <button
-                          onClick={() => setSelectedAssessment(assessment)}
-                          className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
-                        >
-                          <Eye className="h-4 w-4" />
-                          <span>View</span>
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setSelectedAssessment(assessment)}
+                        className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
+                      >
+                        <Eye className="h-4 w-4" />
+                        <span>View</span>
+                      </button>
                       <button
                         onClick={() => handleDeleteAssessment(assessment.id, assessment.candidate?.name || 'Unknown')}
                         disabled={deletingId === assessment.id}
