@@ -680,7 +680,7 @@ export function CandidateAssessmentPage() {
               Thank you, {candidateData?.name}! Your voice assessment has been submitted successfully.
             </p>
             <p className="text-sm text-gray-500">
-              Our AI system will process your response and you'll receive feedback via email at {candidateData?.email}.
+              We system will evaluate your response and let you know the next steps. You may reach out to your recruiter for more details.
             </p>
           </div>
         </div>
