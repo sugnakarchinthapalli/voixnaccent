@@ -17,7 +17,6 @@ export function Dashboard() {
   const [showUpload, setShowUpload] = useState(false);
   const [showGenerate, setShowGenerate] = useState(false);
   // Search and filter state
-  const [showGenerate, setShowGenerate] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     framework: '', // 'CEFR' or 'Competency' or ''
