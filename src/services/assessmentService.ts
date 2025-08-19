@@ -402,7 +402,8 @@ export class AssessmentService {
   }
 
   async getAllAssessments(): Promise<Assessment[]> {
-    const { data, error } = await supabase
+    // Fetch completed assessments
+    const { data: completedAssessments, error: assessmentsError } = await supabase
       .from('assessments')
       .select(`
         *,
@@ -412,8 +413,45 @@ export class AssessmentService {
       .eq('processing_status', 'completed')
       .order('assessment_date', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+    if (assessmentsError) throw assessmentsError;
+
+    // Fetch scheduled candidates that don't have completed assessments yet
+    const { data: scheduledCandidates, error: candidatesError } = await supabase
+      .from('candidates')
+      .select('*')
+      .eq('source_type', 'scheduled')
+      .in('assessment_status', ['pending', 'in_progress', 'expired'])
+      .order('created_at', { ascending: false });
+
+    if (candidatesError) throw candidatesError;
+
+    // Create mock assessment objects for scheduled candidates
+    const mockAssessments: Assessment[] = (scheduledCandidates || []).map(candidate => ({
+      id: `scheduled-${candidate.id}`, // Prefix to distinguish from real assessments
+      candidate_id: candidate.id,
+      assessment_scores: {},
+      overall_grade: null,
+      ai_feedback: null,
+      assessed_by: 'Scheduled Assessment',
+      assessment_date: candidate.created_at, // Use creation date as placeholder
+      processing_status: candidate.assessment_status as 'pending' | 'processing' | 'completed' | 'failed',
+      question_id: null,
+      overall_cefr_level: null,
+      detailed_analysis: null,
+      specific_strengths: null,
+      areas_for_improvement: null,
+      score_justification: null,
+      candidate: candidate,
+      question: null
+    }));
+
+    // Combine completed assessments and mock assessments
+    const allAssessments = [...(completedAssessments || []), ...mockAssessments];
+
+    // Sort by assessment_date/created_at in descending order
+    allAssessments.sort((a, b) => new Date(b.assessment_date).getTime() - new Date(a.assessment_date).getTime());
+
+    return allAssessments;
   }
 
   async searchAssessments(query: string): Promise<Assessment[]> {
@@ -475,6 +513,46 @@ export class AssessmentService {
     try {
       console.log('Starting deletion process for assessment:', assessmentId);
       
+      // Check if this is a scheduled candidate (mock assessment) or real assessment
+      if (assessmentId.startsWith('scheduled-')) {
+        // Extract candidate ID from the mock assessment ID
+        const candidateId = assessmentId.replace('scheduled-', '');
+        console.log('Deleting scheduled candidate:', candidateId);
+        
+        // Get candidate data for cleanup
+        const { data: candidate, error: candidateError } = await supabase
+          .from('candidates')
+          .select('*')
+          .eq('id', candidateId)
+          .single();
+
+        if (candidateError) {
+          console.error('Error fetching candidate for deletion:', candidateError);
+          throw new Error(`Failed to fetch candidate: ${candidateError.message}`);
+        }
+
+        if (!candidate) {
+          throw new Error('Candidate not found');
+        }
+
+        console.log('Found scheduled candidate:', candidate.name);
+
+        // Delete the candidate - this will CASCADE delete any related records
+        const { error: deleteError } = await supabase
+          .from('candidates')
+          .delete()
+          .eq('id', candidateId);
+
+        if (deleteError) {
+          console.error('Error deleting candidate:', deleteError);
+          throw new Error(`Failed to delete candidate: ${deleteError.message}`);
+        }
+
+        console.log('Successfully deleted scheduled candidate');
+        return;
+      }
+
+      // Handle regular completed assessment deletion
       // First, get the assessment with candidate data
       const { data: assessment, error: fetchError } = await supabase
         .from('assessments')

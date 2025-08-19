@@ -222,7 +222,14 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {assessment.overall_cefr_level ? (
+                    {assessment.processing_status === 'pending' || assessment.processing_status === 'expired' ? (
+                      // Scheduled assessment - no result yet
+                      <div className="flex items-center justify-center">
+                        <span className="text-sm text-gray-500 italic">
+                          {assessment.processing_status === 'expired' ? 'Link Expired' : 'Awaiting Submission'}
+                        </span>
+                      </div>
+                    ) : assessment.overall_cefr_level ? (
                       // CEFR Assessment
                       <div className="flex items-center justify-center">
                         <div className={`w-3 h-3 rounded-full ${getCEFRColor(assessment.overall_cefr_level)}`} 
@@ -250,7 +257,9 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    {assessment.overall_cefr_level ? (
+                    {assessment.processing_status === 'pending' || assessment.processing_status === 'expired' ? (
+                      <span className="text-sm font-medium text-purple-700">Scheduled</span>
+                    ) : assessment.overall_cefr_level ? (
                       <span className="text-sm font-medium text-blue-700">CEFR</span>
                     ) : (
                       <span className="text-sm font-medium text-orange-700">Competency</span>
@@ -273,13 +282,15 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => setSelectedAssessment(assessment)}
-                        className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
-                      >
-                        <Eye className="h-4 w-4" />
-                        <span>View</span>
-                      </button>
+                      {assessment.processing_status !== 'pending' && assessment.processing_status !== 'expired' && (
+                        <button
+                          onClick={() => setSelectedAssessment(assessment)}
+                          className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span>View</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDeleteAssessment(assessment.id, assessment.candidate?.name || 'Unknown')}
                         disabled={deletingId === assessment.id}
