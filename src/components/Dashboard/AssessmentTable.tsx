@@ -197,13 +197,7 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                             <Mail className="h-3 w-3 mr-1" />
                             {assessment.candidate?.email || 'No email'}
                             {/* Only show status tag if assessment is pending */}
-                            {assessment.candidate?.assessment_status === 'pending' && (
-                              <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
-                                'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                -
-                              </span>
-                            )}
+                            
                           </div>
                         </div>
                       </div>
