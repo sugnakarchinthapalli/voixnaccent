@@ -695,7 +695,7 @@ export function CandidateAssessmentPage() {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Voice Assessment</h1>
           <p className="text-gray-600 mb-4">
-            Welcome {candidateData?.name}! Complete your voice assessment by answering the question below
+            Welcome {candidateData?.name}! Complete your voice assessment by answering the question below. Please know that you have 3 minutes to complete the test, any cheating efforts will be flagged.
           </p>
           
           {/* Assessment Timer */}
