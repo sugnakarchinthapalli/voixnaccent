@@ -196,7 +196,6 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
         hasAnalysis: !!assessmentResult.detailed_analysis,
         hasStrengths: !!assessmentResult.specific_strengths,
         hasImprovements: !!assessmentResult.areas_for_improvement,
-        hasJustification: !!assessmentResult.score_justification
         hasJustification: !!assessmentResult.score_justification,
         dualAudioDetected: assessmentResult.dual_audio_detected
       });
