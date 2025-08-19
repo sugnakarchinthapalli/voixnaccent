@@ -133,7 +133,7 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
   };
 
   const isScheduledAssessment = assessment.candidate?.source_type === 'scheduled' && 
-    (assessment.processing_status === 'pending' || assessment.processing_status === 'in_progress' || assessment.processing_status === 'expired');
+    (assessment.processing_status === 'in_progress' || assessment.processing_status === 'expired');
   const isNewCEFRAssessment = assessment.overall_cefr_level;
   const isCompletedAssessment = assessment.processing_status === 'completed';
 
