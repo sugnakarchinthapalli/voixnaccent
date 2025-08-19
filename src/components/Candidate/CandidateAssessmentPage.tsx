@@ -119,13 +119,13 @@ export function CandidateAssessmentPage() {
 
       // Validate assessment status and expiry
       if (candidate.assessment_status === 'completed') {
-        setError('This assessment has already been completed.');
+        setError('This assessment has already been submitted.');
         setLoadingCandidate(false);
         return;
       }
 
       if (candidate.assessment_status === 'expired') {
-        setError('This assessment link has expired. Please contact your administrator for a new link.');
+        setError('Assessment link expired. Email ta@mediamint.com for a new link.');
         setAssessmentExpired(true);
         setLoadingCandidate(false);
         return;
@@ -139,7 +139,7 @@ export function CandidateAssessmentPage() {
           .update({ assessment_status: 'expired' })
           .eq('id', candidate.id);
           
-        setError('This assessment link has expired. Please contact your administrator for a new link.');
+        setError('Assessment link expired. Email ta@mediamint.com for a new link.');
         setAssessmentExpired(true);
         setLoadingCandidate(false);
         return;
@@ -652,12 +652,12 @@ export function CandidateAssessmentPage() {
           </div>
           
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Assessment Expired</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Assessment Link Expired</h2>
             <p className="text-gray-600 mb-4">
-              The 3-minute time limit for this assessment has been reached.
+              This assessment link has expired.
             </p>
             <p className="text-sm text-gray-500">
-              Please contact your administrator for a new assessment link if needed.
+              Email ta@mediamint.com for a new link.
             </p>
           </div>
         </div>
@@ -675,7 +675,7 @@ export function CandidateAssessmentPage() {
           </div>
           
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Assessment Submitted!</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Assessment Submitted</h2>
             <p className="text-gray-600 mb-4">
               Thank you, {candidateData?.name}! Your voice assessment has been submitted successfully.
             </p>
