@@ -432,7 +432,7 @@ export class AssessmentService {
       assessment_scores: {},
       overall_grade: null,
       ai_feedback: null,
-      assessed_by: 'Scheduled Assessment',
+      assessed_by: 'Candidate Submission', // Show as candidate submission for scheduled ones
       assessment_date: candidate.created_at, // Use creation date as placeholder
       processing_status: candidate.assessment_status as 'pending' | 'processing' | 'completed' | 'failed',
       question_id: null,
