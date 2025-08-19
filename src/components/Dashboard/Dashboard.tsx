@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Download, Search, Filter } from 'lucide-react';
+import { Plus, Download, Search, Filter, Link } from 'lucide-react';
 import { AssessmentTable } from './AssessmentTable';
 import { ManualUpload } from './ManualUpload';
 import { GenerateAssessment } from './GenerateAssessment';
@@ -13,11 +13,14 @@ export function Dashboard() {
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [filteredAssessments, setFilteredAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
+  // Modal state management
   const [showUpload, setShowUpload] = useState(false);
+  const [showGenerate, setShowGenerate] = useState(false);
+  // Search and filter state
   const [showGenerate, setShowGenerate] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
-    framework: '',
+    framework: '', // 'CEFR' or 'Competency' or ''
     dateFrom: getFirstDayOfCurrentMonth(),
     dateTo: getLastDayOfCurrentMonth()
   });
@@ -170,6 +173,14 @@ export function Dashboard() {
               >
                 <Plus className="h-4 w-4" />
                 <span>Manual Upload</span>
+              </Button>
+              <Button
+                onClick={() => setShowGenerate(true)}
+                variant="secondary"
+                className="flex items-center space-x-2"
+              >
+                <Link className="h-4 w-4" />
+                <span>Generate Assessment</span>
               </Button>
             </div>
           </div>

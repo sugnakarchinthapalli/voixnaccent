@@ -162,6 +162,13 @@ export class CandidateSubmissionService {
     }
   }
 
+  /**
+   * Processes assessment for an existing candidate who has submitted audio via assessment link
+   * This method is called after a candidate completes their assessment through the generated link
+   * 
+   * @param candidateId - The ID of the candidate to process
+   * @param questionId - Optional question ID that was answered
+   */
   async getQueueStatus(): Promise<{
     pending: number;
     processing: number;
@@ -188,7 +195,7 @@ export class CandidateSubmissionService {
     try {
       console.log('🚀 Processing existing candidate assessment...');
       
-      // Fetch candidate data
+      // Fetch the candidate record with audio source
       const { data: candidate, error: candidateError } = await supabaseServiceRole
         .from('candidates')
         .select('*')
@@ -196,14 +203,16 @@ export class CandidateSubmissionService {
         .single();
 
       if (candidateError || !candidate) {
+        console.error('❌ Failed to fetch candidate:', candidateError);
         throw new Error(`Failed to fetch candidate: ${candidateError?.message || 'Not found'}`);
       }
 
       if (!candidate.audio_source) {
+        console.error('❌ No audio source found for candidate:', candidate.name);
         throw new Error('No audio source found for candidate');
       }
 
-      console.log('🤖 Starting CEFR assessment for existing candidate...');
+      console.log('🤖 Starting CEFR assessment for candidate:', candidate.name);
       const cefrResult: CEFRAssessmentResult = await assessAudioWithCEFR(candidate.audio_source);
       console.log('🎯 CEFR assessment completed:', {
         level: cefrResult.overall_cefr_level,
@@ -213,22 +222,22 @@ export class CandidateSubmissionService {
         hasJustification: !!cefrResult.score_justification
       });
       
-      // Map CEFR level to traditional grade for backward compatibility
+      // Convert CEFR level to color-coded grade system
       const overallGrade = mapCEFRToGrade(cefrResult.overall_cefr_level);
 
-      // Save assessment directly using service role
+      // Create assessment record in database
       console.log('💾 Saving CEFR assessment for existing candidate...');
       const { data: assessment, error: assessmentError } = await supabaseServiceRole
         .from('assessments')
         .insert({
           candidate_id: candidateId,
-          assessment_scores: {}, // Empty - using CEFR framework
+          assessment_scores: {}, // Empty for CEFR assessments (legacy field)
           overall_grade: overallGrade,
-          ai_feedback: null, // Using detailed_analysis instead
-          assessed_by: 'Candidate Submission',
+          ai_feedback: null, // Using CEFR detailed_analysis field instead
+          assessed_by: 'Candidate Submission', // Indicates this was submitted by candidate
           processing_status: 'completed',
           question_id: questionId || null,
-          // CEFR framework fields
+          // CEFR assessment framework data
           overall_cefr_level: cefrResult.overall_cefr_level,
           detailed_analysis: cefrResult.detailed_analysis,
           specific_strengths: cefrResult.specific_strengths,
@@ -243,10 +252,10 @@ export class CandidateSubmissionService {
         throw new Error(`Failed to save assessment: ${assessmentError.message}`);
       }
 
-      console.log('✅ Assessment saved successfully for existing candidate:', assessment);
+      console.log('✅ Assessment processing completed successfully for:', candidate.name);
       
     } catch (error) {
-      console.error('💥 Processing existing candidate failed:', error);
+      console.error('💥 Failed to process existing candidate assessment:', error);
       throw error;
     }
   }

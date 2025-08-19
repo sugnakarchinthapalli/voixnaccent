@@ -100,7 +100,7 @@ export function CandidateAssessmentPage() {
     try {
       console.log('🔍 Initializing assessment for session:', sessionId);
       
-      // Fetch candidate data using session ID
+      // Fetch candidate data using the assessment link ID (session ID)
       const { data: candidate, error: candidateError } = await supabase
         .from('candidates')
         .select('*')
@@ -117,25 +117,38 @@ export function CandidateAssessmentPage() {
       console.log('✅ Candidate found:', candidate);
       setCandidateData(candidate);
 
-      // Check if assessment is already completed
+      // Validate assessment status and expiry
       if (candidate.assessment_status === 'completed') {
         setError('This assessment has already been completed.');
         setLoadingCandidate(false);
         return;
       }
 
-      // Check if assessment has expired
-      if (candidate.session_expires_at && new Date() > new Date(candidate.session_expires_at)) {
+      if (candidate.assessment_status === 'expired') {
         setError('This assessment link has expired. Please contact your administrator for a new link.');
         setAssessmentExpired(true);
         setLoadingCandidate(false);
         return;
       }
 
-      // Initialize timer
+      // Check session expiry time
+      if (candidate.session_expires_at && new Date() > new Date(candidate.session_expires_at)) {
+        // Update status to expired in database
+        await supabase
+          .from('candidates')
+          .update({ assessment_status: 'expired' })
+          .eq('id', candidate.id);
+          
+        setError('This assessment link has expired. Please contact your administrator for a new link.');
+        setAssessmentExpired(true);
+        setLoadingCandidate(false);
+        return;
+      }
+
+      // Initialize assessment timer (3 minutes total)
       initializeTimer();
       
-      // Update status to in_progress
+      // Update candidate status to in_progress when they access the assessment
       await supabase
         .from('candidates')
         .update({ assessment_status: 'in_progress' })
@@ -143,7 +156,7 @@ export function CandidateAssessmentPage() {
 
       setLoadingCandidate(false);
       
-      // Fetch random question
+      // Load a random assessment question
       await fetchRandomQuestion();
       
     } catch (err) {
@@ -153,6 +166,10 @@ export function CandidateAssessmentPage() {
     }
   };
 
+  /**
+   * Initializes and manages the 3-minute assessment timer
+   * Uses localStorage to persist timer across page refreshes
+   */
   const initializeTimer = () => {
     const storageKey = `assessmentStartTime_${sessionId}`;
     const storedStartTime = localStorage.getItem(storageKey);
@@ -190,8 +207,11 @@ export function CandidateAssessmentPage() {
     updateTimer();
   };
 
+  /**
+   * Sets up proctoring features including tab focus detection and copy protection
+   */
   const setupProctoring = () => {
-    // Tab focus detection
+    // Detect when user switches tabs or minimizes window
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         console.log('🚨 Tab focus lost detected');
@@ -201,7 +221,7 @@ export function CandidateAssessmentPage() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Disable text selection and copying for question text
+    // Prevent copying of assessment question text
     const preventCopyEvents = (e: Event) => {
       e.preventDefault();
       return false;
@@ -226,6 +246,9 @@ export function CandidateAssessmentPage() {
     };
   };
 
+  /**
+   * Fetches a random assessment question from the database
+   */
   const fetchRandomQuestion = async () => {
     try {
       setLoadingQuestion(true);
@@ -240,6 +263,9 @@ export function CandidateAssessmentPage() {
     }
   };
 
+  /**
+   * Initializes camera and microphone access for recording
+   */
   const initializeCamera = async () => {
     try {
       console.log('Requesting camera and microphone access...');
@@ -278,6 +304,9 @@ export function CandidateAssessmentPage() {
     }
   };
 
+  /**
+   * Starts audio recording with automatic snapshot scheduling
+   */
   const startRecording = async () => {
     if (!mediaStream || assessmentExpired) {
       setError('Cannot start recording - assessment expired or no media stream available');
@@ -358,11 +387,13 @@ export function CandidateAssessmentPage() {
       // Schedule snapshots
       console.log('📸 Scheduling snapshots...');
       
+      // First snapshot after 5 seconds
       setTimeout(() => {
         console.log('📸 Time for first snapshot!');
         takeSnapshot('first');
       }, 5000);
       
+      // Second snapshot after 20 seconds
       setTimeout(() => {
         console.log('📸 Time for second snapshot!');
         takeSnapshot('second');
@@ -376,6 +407,9 @@ export function CandidateAssessmentPage() {
     }
   };
 
+  /**
+   * Stops the current recording and clears all timers
+   */
   const stopRecording = () => {
     if (mediaRecorder && isRecording) {
       console.log('Stopping recording...');
@@ -401,6 +435,9 @@ export function CandidateAssessmentPage() {
     }
   };
 
+  /**
+   * Captures a webcam snapshot for identity verification
+   */
   const takeSnapshot = (snapshotType: 'first' | 'second') => {
     console.log(`📸 Taking ${snapshotType} snapshot...`);
     
@@ -457,6 +494,10 @@ export function CandidateAssessmentPage() {
     }
   };
 
+  /**
+   * Handles the final assessment submission process
+   * Uploads audio and snapshot, updates candidate record, and triggers AI processing
+   */
   const handleSubmitAssessment = async () => {
     if (!candidateData) {
       setError('Candidate data not found');
@@ -489,32 +530,33 @@ export function CandidateAssessmentPage() {
     try {
       console.log('Starting assessment submission...');
       
-      // Upload audio file
+      // Upload recorded audio to Supabase Storage
       console.log('Uploading audio file...');
       const audioUrl = await storageService.uploadAudioFile(
         new File([audioBlob], `recording-${Date.now()}.webm`, { type: audioBlob.type }),
-        true
+        true // Use service role for candidate submissions
       );
       console.log('Audio uploaded:', audioUrl);
       
-      // Upload first snapshot for identity verification
+      // Upload identity verification snapshot
       console.log('Uploading identity verification snapshot...');
       const snapshotUrl = await storageService.uploadImageFile(
         snapshots[0].blob,
         `snapshot-${Date.now()}.jpg`,
-        true
+        true // Use service role for candidate submissions
       );
       console.log('Snapshot uploaded:', snapshotUrl);
       
-      // Prepare proctoring flags
+      // Compile proctoring data for review
       const proctoringFlags = {
         tab_focus_lost: tabFocusLost,
         session_id: sessionId,
         recording_duration: recordingTime,
-        snapshots_captured: snapshots.length
+        snapshots_captured: snapshots.length,
+        submission_timestamp: new Date().toISOString()
       };
       
-      // Update candidate with audio and complete assessment
+      // Update candidate record with assessment data and mark as completed
       console.log('Updating candidate with assessment data...');
       const { error: updateError } = await supabase
         .from('candidates')
@@ -530,10 +572,11 @@ export function CandidateAssessmentPage() {
         throw new Error(`Failed to update candidate: ${updateError.message}`);
       }
 
-      // Process assessment using existing service
+      // Trigger AI assessment processing
+      console.log('Triggering AI assessment processing...');
       await candidateSubmissionService.processExistingCandidate(candidateData.id, question.id);
       
-      // Clear timer from localStorage
+      // Clean up timer data
       localStorage.removeItem(`assessmentStartTime_${sessionId}`);
       
       setSubmitted(true);
@@ -546,12 +589,18 @@ export function CandidateAssessmentPage() {
     }
   };
 
+  /**
+   * Formats seconds into MM:SS format
+   */
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  /**
+   * Cleanup function to stop media streams and clear timers
+   */
   const cleanup = () => {
     console.log('🧹 Starting cleanup...');
     

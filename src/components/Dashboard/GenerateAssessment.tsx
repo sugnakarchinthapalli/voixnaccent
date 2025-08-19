@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { X, Plus, Upload, Download, Link as LinkIcon, Clock, Users, AlertCircle, CheckCircle } from 'lucide-react';
+import { X, Plus, Upload, Download, Link as LinkIcon, Clock, Users, AlertCircle, CheckCircle, Copy } from 'lucide-react';
 import { Button } from '../UI/Button';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../hooks/useAuth';
 
 interface GenerateAssessmentProps {
   onClose: () => void;
@@ -15,31 +14,51 @@ interface CandidateInput {
 }
 
 export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentProps) {
-  const { user } = useAuth();
+  // State for candidate management
   const [candidates, setCandidates] = useState<CandidateInput[]>([{ name: '', email: '' }]);
+  
+  // State for generation process
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
   const [generatedLinks, setGeneratedLinks] = useState<Array<{ name: string; email: string; link: string }>>([]);
   const [error, setError] = useState('');
+  
+  // State for bulk input functionality
   const [bulkInput, setBulkInput] = useState('');
   const [showBulkInput, setShowBulkInput] = useState(false);
+  
+  // State for copy feedback
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
 
+  /**
+   * Adds a new empty candidate to the list
+   */
   const addCandidate = () => {
     setCandidates([...candidates, { name: '', email: '' }]);
   };
 
+  /**
+   * Removes a candidate from the list (minimum 1 candidate required)
+   */
   const removeCandidate = (index: number) => {
     if (candidates.length > 1) {
       setCandidates(candidates.filter((_, i) => i !== index));
     }
   };
 
+  /**
+   * Updates a specific candidate's field
+   */
   const updateCandidate = (index: number, field: keyof CandidateInput, value: string) => {
     const updated = [...candidates];
     updated[index][field] = value;
     setCandidates(updated);
   };
 
+  /**
+   * Parses bulk input text into candidate objects
+   * Supports multiple formats: "Name, Email", "Name <email>", tab-separated
+   */
   const parseBulkInput = () => {
     try {
       const lines = bulkInput.trim().split('\n');
@@ -94,6 +113,10 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
     }
   };
 
+  /**
+   * Validates candidate data before generation
+   * Checks for required fields and duplicate emails
+   */
   const validateCandidates = () => {
     const validCandidates = candidates.filter(c => c.name.trim() && c.email.trim() && c.email.includes('@'));
     
@@ -114,6 +137,10 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
     return true;
   };
 
+  /**
+   * Generates unique assessment links for all valid candidates
+   * Creates candidate records in database with scheduled status
+   */
   const generateAssessmentLinks = async () => {
     if (!validateCandidates()) return;
     
@@ -132,18 +159,18 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
         const expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + 24);
         
-        // Create candidate record
+        // Create candidate record with scheduled assessment
         const { data: candidateRecord, error: candidateError } = await supabase
           .from('candidates')
           .insert({
             name: candidate.name.trim(),
             email: candidate.email.trim(),
-            audio_source: null, // Will be filled when assessment is completed
-            source_type: 'scheduled',
-            assessment_link_id: sessionId,
-            assessment_status: 'pending',
-            session_expires_at: expiresAt.toISOString(),
-            proctoring_flags: {}
+            audio_source: null, // Will be populated when candidate completes assessment
+            source_type: 'scheduled', // Indicates this is a generated assessment link
+            assessment_link_id: sessionId, // Unique identifier for the assessment link
+            assessment_status: 'pending', // Initial status
+            session_expires_at: expiresAt.toISOString(), // 24-hour expiry
+            proctoring_flags: {} // Will store proctoring data when assessment is taken
           })
           .select()
           .single();
@@ -174,18 +201,49 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
     }
   };
 
-  const copyLink = (link: string) => {
-    navigator.clipboard.writeText(link);
+  /**
+   * Copies a single assessment link to clipboard with visual feedback
+   */
+  const copyLink = async (link: string, linkId: string) => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedLinkId(linkId);
+      // Clear feedback after 2 seconds
+      setTimeout(() => setCopiedLinkId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = link;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopiedLinkId(linkId);
+      setTimeout(() => setCopiedLinkId(null), 2000);
+    }
   };
 
-  const copyAllLinks = () => {
+  /**
+   * Copies all generated links to clipboard in a formatted list
+   */
+  const copyAllLinks = async () => {
     const allLinks = generatedLinks.map(item => 
       `${item.name} (${item.email}): ${item.link}`
     ).join('\n\n');
     
-    navigator.clipboard.writeText(allLinks);
+    try {
+      await navigator.clipboard.writeText(allLinks);
+      setCopiedLinkId('all');
+      setTimeout(() => setCopiedLinkId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy all links:', err);
+    }
   };
 
+  /**
+   * Downloads all generated links as a CSV file
+   */
   const downloadLinksCSV = () => {
     const csvContent = [
       ['Name', 'Email', 'Assessment Link'],
@@ -201,6 +259,7 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
     URL.revokeObjectURL(url);
   };
 
+  // Success state - show generated links
   if (generated) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -242,8 +301,8 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
                   size="sm"
                   className="flex items-center space-x-2"
                 >
-                  <LinkIcon className="h-4 w-4" />
-                  <span>Copy All</span>
+                  <Copy className="h-4 w-4" />
+                  <span>{copiedLinkId === 'all' ? 'Copied!' : 'Copy All'}</span>
                 </Button>
                 <Button
                   onClick={downloadLinksCSV}
@@ -266,13 +325,13 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
                       <p className="text-sm text-gray-600">{item.email}</p>
                     </div>
                     <Button
-                      onClick={() => copyLink(item.link)}
+                      onClick={() => copyLink(item.link, `link-${index}`)}
                       variant="outline"
                       size="sm"
                       className="flex items-center space-x-2"
                     >
-                      <LinkIcon className="h-4 w-4" />
-                      <span>Copy Link</span>
+                      <Copy className="h-4 w-4" />
+                      <span>{copiedLinkId === `link-${index}` ? 'Copied!' : 'Copy Link'}</span>
                     </Button>
                   </div>
                   <div className="bg-white p-3 rounded border font-mono text-sm break-all">
@@ -294,6 +353,7 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
     );
   }
 
+  // Main generation interface
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">

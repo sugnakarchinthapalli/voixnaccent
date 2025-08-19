@@ -196,26 +196,18 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                           <div className="text-sm text-gray-500 flex items-center">
                             <Mail className="h-3 w-3 mr-1" />
                             {assessment.candidate?.email || 'No email'}
+                            {/* Display assessment status for scheduled assessments */}
                             {assessment.candidate?.assessment_status && assessment.candidate.assessment_status !== 'completed' && (
                               <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
                                 assessment.candidate.assessment_status === 'pending' 
                                   ? 'bg-yellow-100 text-yellow-800'
                                   : assessment.candidate.assessment_status === 'in_progress'
                                   ? 'bg-blue-100 text-blue-800'
+                                  : assessment.candidate.assessment_status === 'expired'
+                                  ? 'bg-red-100 text-red-800'
                                   : 'bg-gray-100 text-gray-800'
                               }`}>
-                                {assessment.candidate.assessment_status}
-                              </span>
-                            )}
-                            {assessment.candidate?.assessment_status && assessment.candidate.assessment_status !== 'completed' && (
-                              <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
-                                assessment.candidate.assessment_status === 'pending' 
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : assessment.candidate.assessment_status === 'in_progress'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {assessment.candidate.assessment_status}
+                                {assessment.candidate.assessment_status.charAt(0).toUpperCase() + assessment.candidate.assessment_status.slice(1)}
                               </span>
                             )}
                           </div>
@@ -276,9 +268,13 @@ export function AssessmentTable({ assessments, onAssessmentDeleted }: Assessment
                         ? 'bg-blue-100 text-blue-800'
                         : assessment.assessed_by === 'Candidate Submission'
                         ? 'bg-purple-100 text-purple-800'
+                        : assessment.candidate?.source_type === 'scheduled'
+                        ? 'bg-orange-100 text-orange-800'
                         : 'bg-green-100 text-green-800'
                     }`}>
-                      {getDisplayAssessedBy(assessment.assessed_by)}
+                      {assessment.candidate?.source_type === 'scheduled' && assessment.assessed_by === 'Candidate Submission' 
+                        ? 'Scheduled Link' 
+                        : getDisplayAssessedBy(assessment.assessed_by)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
