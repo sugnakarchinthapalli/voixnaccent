@@ -558,7 +558,7 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
                 )}
               </div>
             </div>
-          )};
+            )}
         </div>
       </div>
     </div>
