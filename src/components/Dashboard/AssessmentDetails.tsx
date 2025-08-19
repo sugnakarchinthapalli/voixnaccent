@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, User, Calendar, Mic, Mail, ExternalLink, Download, AlertTriangle, Users, Eye, EyeOff } from 'lucide-react';
+import { X, User, Calendar, Mic, Mail, ExternalLink, Download, AlertTriangle, Users, Eye, EyeOff, Link as LinkIcon, Copy } from 'lucide-react';
 import { Assessment } from '../../types';
 import { Button } from '../UI/Button';
 import { exportAssessmentToPDF } from '../../utils/pdfExport';
@@ -156,14 +156,14 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
           <div className="flex items-center space-x-3">
             {isCompletedAssessment && (
               <Button
-              onClick={handleExportPDF}
-              loading={exportingPDF}
-              variant="outline"
-              className="flex items-center space-x-2"
-            >
-              <Download className="h-4 w-4" />
-              <span>Download PDF</span>
-            </Button>
+                onClick={handleExportPDF}
+                loading={exportingPDF}
+                variant="outline"
+                className="flex items-center space-x-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>Download PDF</span>
+              </Button>
             )}
             <button
               onClick={onClose}
@@ -326,11 +326,11 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
                     <span className="text-gray-500 italic">Awaiting Assessment</span>
                   ) : (
                     new Date(assessment.assessment_date).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
                     })
                   )}
                 </p>
@@ -558,7 +558,7 @@ export function AssessmentDetails({ assessment, onClose }: AssessmentDetailsProp
                 )}
               </div>
             </div>
-            )}
+          ) : null}
         </div>
       </div>
     </div>
