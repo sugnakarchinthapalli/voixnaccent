@@ -155,9 +155,9 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
         // Generate unique session ID
         const sessionId = crypto.randomUUID();
         
-        // Calculate session expiry (24 hours from now)
+        // Calculate session expiry (3 months from now)
         const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 24);
+        expiresAt.setMonth(expiresAt.getMonth() + 3);
         
         // Create candidate record with scheduled assessment
         const { data: candidateRecord, error: candidateError } = await supabase
@@ -372,7 +372,7 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
               <div>
                 <h3 className="font-medium text-blue-800">Assessment Link Features</h3>
                 <ul className="text-sm text-blue-700 mt-1 space-y-1">
-                  <li>• Each link expires in 24 hours from creation</li>
+                  <li>• Each assessment link expires in 3 months</li>
                   <li>• 3-minute timed assessment with proctoring features</li>
                   <li>• Tab focus monitoring and copy protection</li>
                   <li>• Automatic identity verification via webcam snapshots</li>

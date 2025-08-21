@@ -5,9 +5,9 @@ const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 // Retry configuration
-const MAX_RETRIES = 3;
-const BASE_DELAY = 2000; // 2 seconds
-const MAX_DELAY = 30000; // 30 seconds
+const MAX_RETRIES = 5; // Increased retries for better reliability
+const BASE_DELAY = 1000; // 1 second - faster initial retry
+const MAX_DELAY = 20000; // 20 seconds - reduced max delay
 
 /**
  * Enhanced CEFR Assessment Prompt with Strict Evaluation and Dual Audio Detection
@@ -262,8 +262,8 @@ async function retryWithBackoff<T>(
       }
       
       // Calculate delay with exponential backoff and jitter
-      const baseDelay = Math.min(BASE_DELAY * Math.pow(2, attempt), MAX_DELAY);
-      const jitter = Math.random() * 0.1 * baseDelay; // Add up to 10% jitter
+      const baseDelay = Math.min(BASE_DELAY * Math.pow(1.5, attempt), MAX_DELAY); // Gentler backoff
+      const jitter = Math.random() * 0.2 * baseDelay; // Add up to 20% jitter for better distribution
       const delay = baseDelay + jitter;
       
       console.log(`Gemini API attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms...`);

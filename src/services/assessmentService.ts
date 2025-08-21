@@ -5,7 +5,7 @@ import type { CEFRAssessmentResult } from './geminiService';
 import { storageService } from './storageService';
 
 const MAX_CONCURRENT_ASSESSMENTS = 2;
-const PROCESSING_DELAY = 3000; // 3 seconds between API calls
+const PROCESSING_DELAY = 1000; // 1 second between API calls for better throughput
 
 export class AssessmentService {
   private isProcessing = false;
@@ -128,7 +128,7 @@ export class AssessmentService {
     // Then process every 10 seconds
     this.queueMonitorInterval = setInterval(() => {
       this.processQueue();
-    }, 10000); // Check every 10 seconds
+    }, 5000); // Check every 5 seconds for better responsiveness
   }
 
   // Stop queue monitoring
@@ -161,8 +161,11 @@ export class AssessmentService {
   }
 
   private async processNextBatch(): Promise<boolean> {
-    if (this.processingCount >= MAX_CONCURRENT_ASSESSMENTS) {
-      console.log(`⏳ Max concurrent assessments reached (${this.processingCount}/${MAX_CONCURRENT_ASSESSMENTS})`);
+    // Increase concurrent processing for higher load
+    const maxConcurrent = Math.min(MAX_CONCURRENT_ASSESSMENTS * 2, 4); // Allow up to 4 concurrent
+    
+    if (this.processingCount >= maxConcurrent) {
+      console.log(`⏳ Max concurrent assessments reached (${this.processingCount}/${maxConcurrent})`);
       return false;
     }
 
@@ -176,7 +179,7 @@ export class AssessmentService {
       .in('status', ['pending', 'failed'])
       .order('priority', { ascending: false })
       .order('created_at', { ascending: true })
-      .limit(MAX_CONCURRENT_ASSESSMENTS - this.processingCount);
+      .limit(maxConcurrent - this.processingCount);
 
     if (error) {
       console.error('Error fetching queue items:', error);
