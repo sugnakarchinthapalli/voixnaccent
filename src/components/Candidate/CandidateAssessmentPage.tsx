@@ -96,7 +96,7 @@ export function CandidateAssessmentPage() {
     };
   }, [sessionId]);
 
-  const initializeAssessment = async () => {
+   const initializeAssessment = async () => {
     try {
       console.log('🔍 Initializing assessment for session:', sessionId);
       
@@ -145,8 +145,16 @@ export function CandidateAssessmentPage() {
         return;
       }
 
+      // Mark first access if not already marked
+      if (!candidate.first_accessed_at) {
+        await supabase
+          .from('candidates')
+          .update({ first_accessed_at: new Date().toISOString() })
+          .eq('id', candidate.id);
+      }
+
       // Initialize assessment timer (3 minutes total)
-      await initializeTimer(candidate);
+      initializeTimer();
       
       // Update candidate status to in_progress when they access the assessment
       await supabase
@@ -169,7 +177,7 @@ export function CandidateAssessmentPage() {
    * Initializes and manages the 3-minute assessment timer
    * Uses localStorage to persist timer across page refreshes
    */
-  const initializeTimer = async (candidate) => {
+ const initializeTimer = () => {
     const storageKey = `assessmentStartTime_${sessionId}`;
     const storedStartTime = localStorage.getItem(storageKey);
     
@@ -182,14 +190,6 @@ export function CandidateAssessmentPage() {
       startTime = Date.now();
       localStorage.setItem(storageKey, startTime.toString());
       console.log('📅 Set new start time:', new Date(startTime));
-      
-      // Mark link as accessed for the first time
-      if (!candidate.first_accessed_at) {
-        await supabase
-          .from('candidates')
-          .update({ first_accessed_at: new Date().toISOString() })
-          .eq('id', candidate.id);
-      }
     }
     
     setSessionStartTime(startTime);
@@ -204,10 +204,14 @@ export function CandidateAssessmentPage() {
       if (remaining <= 0) {
         console.log('⏰ Assessment time expired');
         // Mark link as expired due to timeout
-        await supabase
-          .from('candidates')
-          .update({ assessment_status: 'expired' })
-          .eq('assessment_link_id', sessionId);
+        try {
+          await supabase
+            .from('candidates')
+            .update({ assessment_status: 'expired' })
+            .eq('assessment_link_id', sessionId);
+        } catch (error) {
+          console.error('Error updating expiry status:', error);
+        }
         setAssessmentExpired(true);
         localStorage.removeItem(storageKey);
         return;
@@ -218,6 +222,7 @@ export function CandidateAssessmentPage() {
     
     updateTimer();
   };
+
   /**
    * Sets up proctoring features including tab focus detection and copy protection
    */
