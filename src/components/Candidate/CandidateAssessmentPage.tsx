@@ -96,9 +96,18 @@ export function CandidateAssessmentPage() {
     };
   }, [sessionId]);
 
-   const initializeAssessment = async () => {
+  const initializeAssessment = async () => {
     try {
       console.log('🔍 Initializing assessment for session:', sessionId);
+      
+      // Debug: Check if any candidates exist with this assessment_link_id
+      const { data: debugCandidates, error: debugError } = await supabase
+        .from('candidates')
+        .select('id, assessment_link_id, assessment_status')
+        .eq('assessment_link_id', sessionId);
+      
+      console.log('Debug - candidates found:', debugCandidates);
+      console.log('Debug - error:', debugError);
       
       // Fetch candidate data using the assessment link ID (session ID)
       const { data: candidate, error: candidateError } = await supabase
@@ -177,7 +186,7 @@ export function CandidateAssessmentPage() {
    * Initializes and manages the 3-minute assessment timer
    * Uses localStorage to persist timer across page refreshes
    */
- const initializeTimer = () => {
+  const initializeTimer = () => {
     const storageKey = `assessmentStartTime_${sessionId}`;
     const storedStartTime = localStorage.getItem(storageKey);
     
@@ -222,6 +231,7 @@ export function CandidateAssessmentPage() {
     
     updateTimer();
   };
+
 
   /**
    * Sets up proctoring features including tab focus detection and copy protection
