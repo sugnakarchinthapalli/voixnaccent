@@ -186,6 +186,9 @@ export function CandidateAssessmentPage() {
     }
     
     setSessionStartTime(startTime);
+    if (!storedStartTime) {
+  await supabase.from('candidates').update({ first_accessed_at: new Date().toISOString() }).eq('id', candidateData.id);
+}
     
     // Start countdown timer
     const updateTimer = () => {
@@ -195,11 +198,13 @@ export function CandidateAssessmentPage() {
       setTimeRemaining(remaining);
       
       if (remaining <= 0) {
-        console.log('⏰ Assessment time expired');
-        setAssessmentExpired(true);
-        localStorage.removeItem(storageKey);
-        return;
-      }
+  console.log('⏰ Assessment time expired');
+  // Mark link as expired due to timeout
+  await supabase.from('candidates').update({ assessment_status: 'expired' }).eq('assessment_link_id', sessionId);
+  setAssessmentExpired(true);
+  localStorage.removeItem(storageKey);
+  return;
+}
       
       setTimeout(updateTimer, 1000);
     };
