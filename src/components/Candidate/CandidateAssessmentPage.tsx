@@ -131,7 +131,7 @@ export function CandidateAssessmentPage() {
         return;
       }
 
-      // Check session expiry time
+      // Check 3-month session expiry time
       if (candidate.session_expires_at && new Date() > new Date(candidate.session_expires_at)) {
         // Update status to expired in database
         await supabase
@@ -146,7 +146,7 @@ export function CandidateAssessmentPage() {
       }
 
       // Initialize assessment timer (3 minutes total)
-      initializeTimer();
+      await initializeTimer(candidate);
       
       // Update candidate status to in_progress when they access the assessment
       await supabase
@@ -165,16 +165,15 @@ export function CandidateAssessmentPage() {
       setLoadingCandidate(false);
     }
   };
-
   /**
    * Initializes and manages the 3-minute assessment timer
    * Uses localStorage to persist timer across page refreshes
    */
-  const initializeTimer = () => {
+  const initializeTimer = async (candidate) => {
     const storageKey = `assessmentStartTime_${sessionId}`;
     const storedStartTime = localStorage.getItem(storageKey);
     
-    let startTime: number;
+    let startTime;
     
     if (storedStartTime) {
       startTime = parseInt(storedStartTime, 10);
@@ -183,35 +182,42 @@ export function CandidateAssessmentPage() {
       startTime = Date.now();
       localStorage.setItem(storageKey, startTime.toString());
       console.log('📅 Set new start time:', new Date(startTime));
+      
+      // Mark link as accessed for the first time
+      if (!candidate.first_accessed_at) {
+        await supabase
+          .from('candidates')
+          .update({ first_accessed_at: new Date().toISOString() })
+          .eq('id', candidate.id);
+      }
     }
     
     setSessionStartTime(startTime);
-    if (!storedStartTime) {
-  await supabase.from('candidates').update({ first_accessed_at: new Date().toISOString() }).eq('id', candidateData.id);
-}
     
     // Start countdown timer
-    const updateTimer = () => {
+    const updateTimer = async () => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       const remaining = Math.max(0, ASSESSMENT_DURATION - elapsed);
       
       setTimeRemaining(remaining);
       
       if (remaining <= 0) {
-  console.log('⏰ Assessment time expired');
-  // Mark link as expired due to timeout
-  await supabase.from('candidates').update({ assessment_status: 'expired' }).eq('assessment_link_id', sessionId);
-  setAssessmentExpired(true);
-  localStorage.removeItem(storageKey);
-  return;
-}
+        console.log('⏰ Assessment time expired');
+        // Mark link as expired due to timeout
+        await supabase
+          .from('candidates')
+          .update({ assessment_status: 'expired' })
+          .eq('assessment_link_id', sessionId);
+        setAssessmentExpired(true);
+        localStorage.removeItem(storageKey);
+        return;
+      }
       
       setTimeout(updateTimer, 1000);
     };
     
     updateTimer();
   };
-
   /**
    * Sets up proctoring features including tab focus detection and copy protection
    */
