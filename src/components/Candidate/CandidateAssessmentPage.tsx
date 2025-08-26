@@ -96,18 +96,9 @@ export function CandidateAssessmentPage() {
     };
   }, [sessionId]);
 
-  const initializeAssessment = async () => {
+    const initializeAssessment = async () => {
     try {
       console.log('🔍 Initializing assessment for session:', sessionId);
-      
-      // Debug: Check if any candidates exist with this assessment_link_id
-      const { data: debugCandidates, error: debugError } = await supabase
-        .from('candidates')
-        .select('id, assessment_link_id, assessment_status')
-        .eq('assessment_link_id', sessionId);
-      
-      console.log('Debug - candidates found:', debugCandidates);
-      console.log('Debug - error:', debugError);
       
       // Fetch candidate data using the assessment link ID (session ID)
       const { data: candidate, error: candidateError } = await supabase
@@ -140,7 +131,7 @@ export function CandidateAssessmentPage() {
         return;
       }
 
-      // Check 3-month session expiry time
+      // Check if session has expired (covers both 3-month expiry and 4-minute timeout)
       if (candidate.session_expires_at && new Date() > new Date(candidate.session_expires_at)) {
         // Update status to expired in database
         await supabase
@@ -154,15 +145,26 @@ export function CandidateAssessmentPage() {
         return;
       }
 
-      // Mark first access if not already marked
-      if (!candidate.first_accessed_at) {
+      // Check if this is first access (session_expires_at is still 3 months away)
+      const now = new Date();
+      const expiryDate = new Date(candidate.session_expires_at);
+      const timeDiffHours = (expiryDate - now) / (1000 * 60 * 60);
+      
+      // If expiry is more than 24 hours away, this is first access
+      if (timeDiffHours > 24) {
+        console.log('🔥 First access detected, updating expiry to 4 minutes');
+        const newExpiry = new Date(now.getTime() + 4 * 60 * 1000); // 4 minutes from now
+        
         await supabase
           .from('candidates')
-          .update({ first_accessed_at: new Date().toISOString() })
+          .update({ session_expires_at: newExpiry.toISOString() })
           .eq('id', candidate.id);
+        
+        // Update local candidate data
+        setCandidateData({...candidate, session_expires_at: newExpiry.toISOString()});
       }
 
-      // Initialize assessment timer (3 minutes total)
+      // Initialize assessment timer (4 minutes total, but UI shows 3 minutes)
       initializeTimer();
       
       // Update candidate status to in_progress when they access the assessment
@@ -203,24 +205,15 @@ export function CandidateAssessmentPage() {
     
     setSessionStartTime(startTime);
     
-    // Start countdown timer
-    const updateTimer = async () => {
+    // Start countdown timer - UI shows 3 minutes but database expires in 4
+    const updateTimer = () => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       const remaining = Math.max(0, ASSESSMENT_DURATION - elapsed);
       
       setTimeRemaining(remaining);
       
       if (remaining <= 0) {
-        console.log('⏰ Assessment time expired');
-        // Mark link as expired due to timeout
-        try {
-          await supabase
-            .from('candidates')
-            .update({ assessment_status: 'expired' })
-            .eq('assessment_link_id', sessionId);
-        } catch (error) {
-          console.error('Error updating expiry status:', error);
-        }
+        console.log('⏰ Assessment time expired (UI timer)');
         setAssessmentExpired(true);
         localStorage.removeItem(storageKey);
         return;
