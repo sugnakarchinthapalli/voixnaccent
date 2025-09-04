@@ -97,93 +97,152 @@ export function CandidateAssessmentPage() {
   }, [sessionId]);
 
     const initializeAssessment = async () => {
-    try {
-      console.log('🔍 Initializing assessment for session:', sessionId);
+  try {
+    console.log('🔍 Initializing assessment for session:', sessionId);
+    console.log('🔍 Session ID type:', typeof sessionId);
+    console.log('🔍 Session ID value:', sessionId);
+    
+    // First, let's see what candidates exist in the database
+    console.log('🔍 Checking all candidates in database...');
+    const { data: allCandidates, error: allError } = await supabase
+      .from('candidates')
+      .select('id, name, email, assessment_link_id, assessment_status')
+      .limit(10);
+    
+    if (allError) {
+      console.error('❌ Error fetching all candidates:', allError);
+    } else {
+      console.log('📊 Found candidates:', allCandidates);
+      console.log('📊 Assessment link IDs in database:', 
+        allCandidates?.map(c => c.assessment_link_id) || []
+      );
+    }
+    
+    // Validate sessionId format (should be a valid UUID)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!sessionId) {
+      console.error('❌ No sessionId provided');
+      setError('Invalid assessment link. Please contact your administrator.');
+      setLoadingCandidate(false);
+      return;
+    }
+    
+    if (!uuidRegex.test(sessionId)) {
+      console.error('❌ Invalid UUID format for sessionId:', sessionId);
+      setError('Invalid assessment link format. Please contact your administrator.');
+      setLoadingCandidate(false);
+      return;
+    }
+    
+    // Fetch candidate data using the assessment link ID (session ID)
+    console.log('🔍 Searching for candidate with assessment_link_id:', sessionId);
+    const { data: candidates, error: candidateError } = await supabase
+      .from('candidates')
+      .select('*')
+      .eq('assessment_link_id', sessionId);
+
+    if (candidateError) {
+      console.error('❌ Database error fetching candidate:', candidateError);
+      setError('Database error occurred. Please contact your administrator.');
+      setLoadingCandidate(false);
+      return;
+    }
+
+    console.log('🔍 Query result - candidates found:', candidates?.length || 0);
+    console.log('🔍 Candidates data:', candidates);
+
+    if (!candidates || candidates.length === 0) {
+      console.error('❌ No candidate found with assessment_link_id:', sessionId);
       
-      // Fetch candidate data using the assessment link ID (session ID)
-      const { data: candidate, error: candidateError } = await supabase
+      // Let's also try a case-insensitive search in case there's a case mismatch
+      const { data: caseInsensitiveSearch } = await supabase
         .from('candidates')
         .select('*')
-        .eq('assessment_link_id', sessionId)
-        .single();
-
-      if (candidateError || !candidate) {
-        console.error('❌ Candidate not found:', candidateError);
-        setError('Invalid assessment link or assessment not found. Please contact your administrator.');
-        setLoadingCandidate(false);
-        return;
-      }
-
-      console.log('✅ Candidate found:', candidate);
-      setCandidateData(candidate);
-
-      // Validate assessment status and expiry
-      if (candidate.assessment_status === 'completed') {
-        setError('This assessment has already been submitted.');
-        setLoadingCandidate(false);
-        return;
-      }
-
-      if (candidate.assessment_status === 'expired') {
-        setError('Assessment link expired. Email ta@mediamint.com for a new link.');
-        setAssessmentExpired(true);
-        setLoadingCandidate(false);
-        return;
-      }
-
-      // Check if session has expired (covers both 3-month expiry and 4-minute timeout)
-      if (candidate.session_expires_at && new Date() > new Date(candidate.session_expires_at)) {
-        // Update status to expired in database
-        await supabase
-          .from('candidates')
-          .update({ assessment_status: 'expired' })
-          .eq('id', candidate.id);
-          
-        setError('Assessment link expired. Email ta@mediamint.com for a new link.');
-        setAssessmentExpired(true);
-        setLoadingCandidate(false);
-        return;
-      }
-
-      // Check if this is first access (session_expires_at is still 3 months away)
-      const now = new Date();
-      const expiryDate = new Date(candidate.session_expires_at);
-      const timeDiffHours = (expiryDate - now) / (1000 * 60 * 60);
+        .ilike('assessment_link_id', sessionId);
       
-      // If expiry is more than 24 hours away, this is first access
-      if (timeDiffHours > 24) {
-        console.log('🔥 First access detected, updating expiry to 4 minutes');
-        const newExpiry = new Date(now.getTime() + 4 * 60 * 1000); // 4 minutes from now
-        
-        await supabase
-          .from('candidates')
-          .update({ session_expires_at: newExpiry.toISOString() })
-          .eq('id', candidate.id);
-        
-        // Update local candidate data
-        setCandidateData({...candidate, session_expires_at: newExpiry.toISOString()});
-      }
-
-      // Initialize assessment timer (4 minutes total, but UI shows 3 minutes)
-      initializeTimer();
+      console.log('🔍 Case-insensitive search result:', caseInsensitiveSearch);
       
-      // Update candidate status to in_progress when they access the assessment
+      setError('Invalid assessment link or assessment not found. Please contact your administrator.');
+      setLoadingCandidate(false);
+      return;
+    }
+
+    if (candidates.length > 1) {
+      console.warn('⚠️ Multiple candidates found with same assessment_link_id:', sessionId);
+      // Take the first one or handle as needed
+    }
+
+    const candidate = candidates[0];
+    console.log('✅ Candidate found:', candidate);
+    setCandidateData(candidate);
+
+    // Validate assessment status and expiry
+    if (candidate.assessment_status === 'completed') {
+      setError('This assessment has already been submitted.');
+      setLoadingCandidate(false);
+      return;
+    }
+
+    if (candidate.assessment_status === 'expired') {
+      setError('Assessment link expired. Email ta@mediamint.com for a new link.');
+      setAssessmentExpired(true);
+      setLoadingCandidate(false);
+      return;
+    }
+
+    // Check if session has expired (covers both 3-month expiry and 4-minute timeout)
+    if (candidate.session_expires_at && new Date() > new Date(candidate.session_expires_at)) {
+      // Update status to expired in database
       await supabase
         .from('candidates')
-        .update({ assessment_status: 'in_progress' })
+        .update({ assessment_status: 'expired' })
         .eq('id', candidate.id);
-
+        
+      setError('Assessment link expired. Email ta@mediamint.com for a new link.');
+      setAssessmentExpired(true);
       setLoadingCandidate(false);
-      
-      // Load a random assessment question
-      await fetchRandomQuestion();
-      
-    } catch (err) {
-      console.error('❌ Error initializing assessment:', err);
-      setError('Failed to initialize assessment. Please try again.');
-      setLoadingCandidate(false);
+      return;
     }
-  };
+
+    // Check if this is first access (session_expires_at is still 3 months away)
+    const now = new Date();
+    const expiryDate = new Date(candidate.session_expires_at);
+    const timeDiffHours = (expiryDate - now) / (1000 * 60 * 60);
+    
+    // If expiry is more than 24 hours away, this is first access
+    if (timeDiffHours > 24) {
+      console.log('🔥 First access detected, updating expiry to 4 minutes');
+      const newExpiry = new Date(now.getTime() + 4 * 60 * 1000); // 4 minutes from now
+      
+      await supabase
+        .from('candidates')
+        .update({ session_expires_at: newExpiry.toISOString() })
+        .eq('id', candidate.id);
+      
+      // Update local candidate data
+      setCandidateData({...candidate, session_expires_at: newExpiry.toISOString()});
+    }
+
+    // Initialize assessment timer (4 minutes total, but UI shows 3 minutes)
+    initializeTimer();
+    
+    // Update candidate status to in_progress when they access the assessment
+    await supabase
+      .from('candidates')
+      .update({ assessment_status: 'in_progress' })
+      .eq('id', candidate.id);
+
+    setLoadingCandidate(false);
+    
+    // Load a random assessment question
+    await fetchRandomQuestion();
+    
+  } catch (err) {
+    console.error('❌ Error initializing assessment:', err);
+    setError('Failed to initialize assessment. Please try again.');
+    setLoadingCandidate(false);
+  }
+};
   /**
    * Initializes and manages the 3-minute assessment timer
    * Uses localStorage to persist timer across page refreshes
