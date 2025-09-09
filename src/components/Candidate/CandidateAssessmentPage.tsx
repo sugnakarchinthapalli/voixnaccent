@@ -90,7 +90,6 @@ export function CandidateAssessmentPage() {
     window.history.pushState(null, '', window.location.href);
     
     return () => {
-      console.log('Component unmounting, cleaning up...');
       cleanup();
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('popstate', handlePopState);
@@ -99,21 +98,15 @@ export function CandidateAssessmentPage() {
 
     const initializeAssessment = async () => {
   try {
-    console.log('🔍 Initializing assessment for session:', sessionId);
-    console.log('🔍 Session ID type:', typeof sessionId);
-    console.log('🔍 Session ID value:', sessionId);
-    
     // Validate sessionId format (should be a valid UUID)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!sessionId) {
-      console.error('❌ No sessionId provided');
       setError('Invalid assessment link. Please contact your administrator.');
       setLoadingCandidate(false);
       return;
     }
     
     if (!uuidRegex.test(sessionId)) {
-      console.error('❌ Invalid UUID format for sessionId:', sessionId);
       setError('Invalid assessment link format. Please contact your administrator.');
       setLoadingCandidate(false);
       return;
@@ -121,45 +114,24 @@ export function CandidateAssessmentPage() {
     
     // Fetch candidate data using the assessment link ID (session ID)
     // Use service role client to bypass RLS since candidates are not authenticated
-    console.log('🔍 Searching for candidate with assessment_link_id:', sessionId);
     const { data: candidates, error: candidateError } = await supabaseServiceRole
       .from('candidates')
       .select('*')
       .eq('assessment_link_id', sessionId);
 
     if (candidateError) {
-      console.error('❌ Database error fetching candidate:', candidateError);
       setError('Database error occurred. Please contact your administrator.');
       setLoadingCandidate(false);
       return;
     }
 
-    console.log('🔍 Query result - candidates found:', candidates?.length || 0);
-    console.log('🔍 Candidates data:', candidates);
-
     if (!candidates || candidates.length === 0) {
-      console.error('❌ No candidate found with assessment_link_id:', sessionId);
-      
-      // Let's also try a case-insensitive search in case there's a case mismatch
-      const { data: caseInsensitiveSearch } = await supabase
-        .from('candidates')
-        .select('*')
-        .ilike('assessment_link_id', sessionId);
-      
-      console.log('🔍 Case-insensitive search result:', caseInsensitiveSearch);
-      
       setError('Invalid assessment link or assessment not found. Please contact your administrator.');
       setLoadingCandidate(false);
       return;
     }
 
-    if (candidates.length > 1) {
-      console.warn('⚠️ Multiple candidates found with same assessment_link_id:', sessionId);
-      // Take the first one or handle as needed
-    }
-
     const candidate = candidates[0];
-    console.log('✅ Candidate found:', candidate);
     setCandidateData(candidate);
 
     // Validate assessment status and expiry
@@ -197,7 +169,6 @@ export function CandidateAssessmentPage() {
     
     // If expiry is more than 24 hours away, this is first access
     if (timeDiffHours > 24) {
-      console.log('🔥 First access detected, updating expiry to 4 minutes');
       const newExpiry = new Date(now.getTime() + 4 * 60 * 1000); // 4 minutes from now
       
       await supabaseServiceRole
@@ -224,7 +195,6 @@ export function CandidateAssessmentPage() {
     await fetchRandomQuestion();
     
   } catch (err) {
-    console.error('❌ Error initializing assessment:', err);
     setError('Failed to initialize assessment. Please try again.');
     setLoadingCandidate(false);
   }
@@ -241,11 +211,9 @@ export function CandidateAssessmentPage() {
     
     if (storedStartTime) {
       startTime = parseInt(storedStartTime, 10);
-      console.log('📅 Found existing start time:', new Date(startTime));
     } else {
       startTime = Date.now();
       localStorage.setItem(storageKey, startTime.toString());
-      console.log('📅 Set new start time:', new Date(startTime));
     }
     
     setSessionStartTime(startTime);
@@ -258,7 +226,6 @@ export function CandidateAssessmentPage() {
       setTimeRemaining(remaining);
       
       if (remaining <= 0) {
-        console.log('⏰ Assessment time expired (UI timer)');
         setAssessmentExpired(true);
         localStorage.removeItem(storageKey);
         return;
@@ -278,7 +245,6 @@ export function CandidateAssessmentPage() {
     // Detect when user switches tabs or minimizes window
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        console.log('🚨 Tab focus lost detected');
         setTabFocusLost(true);
       }
     };
@@ -320,7 +286,6 @@ export function CandidateAssessmentPage() {
       setQuestion(randomQuestion);
       setError('');
     } catch (err) {
-      console.error('Error fetching question:', err);
       setError('Failed to load assessment question. Please refresh the page.');
     } finally {
       setLoadingQuestion(false);
@@ -332,8 +297,6 @@ export function CandidateAssessmentPage() {
    */
   const initializeCamera = async () => {
     try {
-      console.log('Requesting camera and microphone access...');
-      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
@@ -347,23 +310,17 @@ export function CandidateAssessmentPage() {
         }
       });
 
-      console.log('Media stream obtained:', stream);
       setMediaStream(stream);
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.onloadedmetadata = () => {
-          console.log('Video metadata loaded, dimensions:', {
-            width: videoRef.current?.videoWidth,
-            height: videoRef.current?.videoHeight
-          });
           setCameraReady(true);
         };
       }
       
       setError('');
     } catch (err) {
-      console.error('Error accessing camera:', err);
       setError(`Failed to access camera and microphone: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
