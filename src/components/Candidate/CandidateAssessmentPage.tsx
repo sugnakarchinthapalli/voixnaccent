@@ -6,6 +6,7 @@ import { questionService } from '../../services/questionService';
 import { candidateSubmissionService } from '../../services/candidateSubmissionService';
 import { storageService } from '../../services/storageService';
 import { supabase } from '../../lib/supabase';
+import { supabaseServiceRole } from '../../lib/supabaseServiceRole';
 import { Question, Candidate } from '../../types';
 
 interface Snapshot {
@@ -102,22 +103,6 @@ export function CandidateAssessmentPage() {
     console.log('🔍 Session ID type:', typeof sessionId);
     console.log('🔍 Session ID value:', sessionId);
     
-    // First, let's see what candidates exist in the database
-    console.log('🔍 Checking all candidates in database...');
-    const { data: allCandidates, error: allError } = await supabase
-      .from('candidates')
-      .select('id, name, email, assessment_link_id, assessment_status')
-      .limit(10);
-    
-    if (allError) {
-      console.error('❌ Error fetching all candidates:', allError);
-    } else {
-      console.log('📊 Found candidates:', allCandidates);
-      console.log('📊 Assessment link IDs in database:', 
-        allCandidates?.map(c => c.assessment_link_id) || []
-      );
-    }
-    
     // Validate sessionId format (should be a valid UUID)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!sessionId) {
@@ -135,8 +120,9 @@ export function CandidateAssessmentPage() {
     }
     
     // Fetch candidate data using the assessment link ID (session ID)
+    // Use service role client to bypass RLS since candidates are not authenticated
     console.log('🔍 Searching for candidate with assessment_link_id:', sessionId);
-    const { data: candidates, error: candidateError } = await supabase
+    const { data: candidates, error: candidateError } = await supabaseServiceRole
       .from('candidates')
       .select('*')
       .eq('assessment_link_id', sessionId);
@@ -192,8 +178,8 @@ export function CandidateAssessmentPage() {
 
     // Check if session has expired (covers both 3-month expiry and 4-minute timeout)
     if (candidate.session_expires_at && new Date() > new Date(candidate.session_expires_at)) {
-      // Update status to expired in database
-      await supabase
+      // Update status to expired in database using service role
+      await supabaseServiceRole
         .from('candidates')
         .update({ assessment_status: 'expired' })
         .eq('id', candidate.id);
@@ -207,14 +193,14 @@ export function CandidateAssessmentPage() {
     // Check if this is first access (session_expires_at is still 3 months away)
     const now = new Date();
     const expiryDate = new Date(candidate.session_expires_at);
-    const timeDiffHours = (expiryDate - now) / (1000 * 60 * 60);
+    const timeDiffHours = (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60);
     
     // If expiry is more than 24 hours away, this is first access
     if (timeDiffHours > 24) {
       console.log('🔥 First access detected, updating expiry to 4 minutes');
       const newExpiry = new Date(now.getTime() + 4 * 60 * 1000); // 4 minutes from now
       
-      await supabase
+      await supabaseServiceRole
         .from('candidates')
         .update({ session_expires_at: newExpiry.toISOString() })
         .eq('id', candidate.id);
@@ -227,7 +213,7 @@ export function CandidateAssessmentPage() {
     initializeTimer();
     
     // Update candidate status to in_progress when they access the assessment
-    await supabase
+    await supabaseServiceRole
       .from('candidates')
       .update({ assessment_status: 'in_progress' })
       .eq('id', candidate.id);
@@ -636,7 +622,7 @@ export function CandidateAssessmentPage() {
       
       // Update candidate record with assessment data and mark as completed
       console.log('Updating candidate with assessment data...');
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseServiceRole
         .from('candidates')
         .update({
           audio_source: audioUrl,

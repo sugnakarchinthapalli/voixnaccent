@@ -51,7 +51,6 @@ export type Database = {
         Row: {
           id: string;
           text: string;
-          competencies_targeted: string[];
           difficulty_level: 'easy' | 'medium' | 'hard';
           is_active: boolean;
           created_at: string;

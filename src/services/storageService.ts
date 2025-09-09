@@ -12,6 +12,7 @@ export class StorageService {
       const filePath = `audio/${fileName}`;
 
       console.log(`Uploading file: ${file.name} (${file.size} bytes) as ${filePath}`);
+      console.log(`Using ${useServiceRole ? 'service role' : 'regular'} client for upload`);
 
       // Use service role client for candidate submissions to bypass RLS
       const client = useServiceRole ? supabaseServiceRole : supabase;

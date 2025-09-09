@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Candidate, Assessment, QueueItem, CompetencyScores } from '../types';
+import { Candidate, Assessment, QueueItem } from '../types';
 import { assessAudioWithCEFR, mapCEFRToGrade } from './geminiService';
 import type { CEFRAssessmentResult } from './geminiService';
 import { storageService } from './storageService';

@@ -35,7 +35,6 @@ export class QuestionService {
 
   async createQuestion(questionData: {
     text: string;
-    competencies_targeted?: string[];
     difficulty_level?: 'easy' | 'medium' | 'hard';
     is_active?: boolean;
   }): Promise<Question> {
@@ -43,7 +42,6 @@ export class QuestionService {
       .from('questions')
       .insert({
         text: questionData.text,
-        competencies_targeted: questionData.competencies_targeted || [],
         difficulty_level: questionData.difficulty_level || 'medium',
         is_active: questionData.is_active !== false
       })
