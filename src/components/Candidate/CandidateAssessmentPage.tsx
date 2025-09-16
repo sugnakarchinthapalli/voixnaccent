@@ -63,6 +63,14 @@ export function CandidateAssessmentPage() {
       return;
     }
 
+    // Check if user has completed system check by looking for a flag in sessionStorage
+    const systemCheckCompleted = sessionStorage.getItem(`systemCheck_${sessionId}`);
+    if (!systemCheckCompleted) {
+      // Redirect back to system check if not completed
+      navigate(`/commstest/${sessionId}`, { replace: true });
+      return;
+    }
+
     initializeAssessment();
     initializeCamera();
     setupProctoring();
@@ -94,7 +102,7 @@ export function CandidateAssessmentPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [sessionId]);
+  }, [sessionId, navigate]);
 
     const initializeAssessment = async () => {
   try {
@@ -162,32 +170,77 @@ export function CandidateAssessmentPage() {
       return;
     }
 
-    // Check if this is first access (session_expires_at is still 3 months away)
+    // Check if this is first access and initialize session timer properly
     const now = new Date();
-    const expiryDate = new Date(candidate.session_expires_at);
-    const timeDiffHours = (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    let updatedCandidate = candidate;
     
-    // If expiry is more than 24 hours away, this is first access
-    if (timeDiffHours > 24) {
+    if (candidate.session_expires_at) {
+      const expiryDate = new Date(candidate.session_expires_at);
+      const timeDiffHours = (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+      
+      // If expiry is more than 1 hour away OR if session_expires_at is in the past and status is still pending,
+      // this indicates first access - set new 4-minute timer
+      if (timeDiffHours > 1 || (timeDiffHours < 0 && candidate.assessment_status === 'pending')) {
+        const newExpiry = new Date(now.getTime() + 4 * 60 * 1000); // 4 minutes from now
+        console.log('🕒 First access detected, setting 4-minute session timer:', newExpiry.toISOString());
+        
+        try {
+          const { error: updateError } = await supabaseServiceRole
+            .from('candidates')
+            .update({ 
+              session_expires_at: newExpiry.toISOString(),
+              assessment_status: 'in_progress'
+            })
+            .eq('id', candidate.id);
+          
+          if (updateError) {
+            console.error('Failed to update session expiry:', updateError);
+            // Continue anyway - don't block the assessment
+          }
+          
+          // Update local candidate data
+          updatedCandidate = {...candidate, 
+            session_expires_at: newExpiry.toISOString(),
+            assessment_status: 'in_progress' as const
+          };
+          setCandidateData(updatedCandidate);
+        } catch (error) {
+          console.error('Error updating session timer:', error);
+          // Continue with original candidate data
+        }
+      }
+    } else {
+      // No session_expires_at set - this is definitely first access
       const newExpiry = new Date(now.getTime() + 4 * 60 * 1000); // 4 minutes from now
+      console.log('🕒 No session timer found, setting 4-minute timer:', newExpiry.toISOString());
       
-      await supabaseServiceRole
-        .from('candidates')
-        .update({ session_expires_at: newExpiry.toISOString() })
-        .eq('id', candidate.id);
-      
-      // Update local candidate data
-      setCandidateData({...candidate, session_expires_at: newExpiry.toISOString()});
+      try {
+        const { error: updateError } = await supabaseServiceRole
+          .from('candidates')
+          .update({ 
+            session_expires_at: newExpiry.toISOString(),
+            assessment_status: 'in_progress'
+          })
+          .eq('id', candidate.id);
+        
+        if (updateError) {
+          console.error('Failed to set initial session expiry:', updateError);
+        }
+        
+        updatedCandidate = {...candidate, 
+          session_expires_at: newExpiry.toISOString(),
+          assessment_status: 'in_progress' as const
+        };
+        setCandidateData(updatedCandidate);
+      } catch (error) {
+        console.error('Error setting initial session timer:', error);
+      }
     }
 
-    // Initialize assessment timer (4 minutes total, but UI shows 3 minutes)
-    initializeTimer();
+    // Initialize assessment timer based on updated candidate data
+    initializeTimer(updatedCandidate);
     
-    // Update candidate status to in_progress when they access the assessment
-    await supabaseServiceRole
-      .from('candidates')
-      .update({ assessment_status: 'in_progress' })
-      .eq('id', candidate.id);
+    console.log('✅ Assessment initialization completed for:', updatedCandidate.name);
 
     setLoadingCandidate(false);
     
@@ -203,7 +256,7 @@ export function CandidateAssessmentPage() {
    * Initializes and manages the 3-minute assessment timer
    * Uses localStorage to persist timer across page refreshes
    */
-  const initializeTimer = () => {
+  const initializeTimer = (candidate?: Candidate) => {
     const storageKey = `assessmentStartTime_${sessionId}`;
     const storedStartTime = localStorage.getItem(storageKey);
     

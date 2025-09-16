@@ -4,8 +4,10 @@ import { assessAudioWithCEFR, mapCEFRToGrade } from './geminiService';
 import type { CEFRAssessmentResult } from './geminiService';
 import { storageService } from './storageService';
 
-const MAX_CONCURRENT_ASSESSMENTS = 2;
-const PROCESSING_DELAY = 1000; // 1 second between API calls for better throughput
+const MAX_CONCURRENT_ASSESSMENTS = 4; // Increased for better throughput
+const PROCESSING_DELAY = 500; // Reduced delay for faster processing
+const BATCH_SIZE = 10; // Process candidates in batches
+const QUEUE_CHECK_INTERVAL = 3000; // Check queue every 3 seconds
 
 export class AssessmentService {
   private isProcessing = false;
@@ -125,10 +127,10 @@ export class AssessmentService {
     // Process immediately
     this.processQueue();
     
-    // Then process every 10 seconds
+    // Then process periodically with adaptive interval
     this.queueMonitorInterval = setInterval(() => {
       this.processQueue();
-    }, 5000); // Check every 5 seconds for better responsiveness
+    }, QUEUE_CHECK_INTERVAL);
   }
 
   // Stop queue monitoring
@@ -141,18 +143,43 @@ export class AssessmentService {
   }
 
   private async processQueue() {
-    if (this.isProcessing) return;
+    if (this.isProcessing) {
+      console.log('⏭️ Queue processing already in progress, skipping...');
+      return;
+    }
     
     this.isProcessing = true;
+    const startTime = Date.now();
     console.log('🔄 Processing queue...');
     
     try {
-      const processed = await this.processNextBatch();
-      if (processed) {
-        console.log('✅ Batch processed successfully');
+      let totalProcessed = 0;
+      let hasMore = true;
+      
+      // Process in batches to avoid overwhelming the system
+      while (hasMore && totalProcessed < BATCH_SIZE * 3) { // Max 30 items per queue run
+        const batchResult = await this.processNextBatch();
+        if (batchResult.processed > 0) {
+          totalProcessed += batchResult.processed;
+          console.log(`✅ Batch processed: ${batchResult.processed} items (Total: ${totalProcessed})`);
+          
+          // Short delay between batches to prevent overwhelming
+          if (batchResult.hasMore) {
+            await new Promise(resolve => setTimeout(resolve, PROCESSING_DELAY));
+          }
+        } else {
+          hasMore = false;
+        }
+        hasMore = batchResult.hasMore;
+      }
+      
+      const duration = Date.now() - startTime;
+      if (totalProcessed > 0) {
+        console.log(`🎉 Queue processing completed: ${totalProcessed} items in ${duration}ms`);
       } else {
         console.log('📭 No pending items to process');
       }
+      
     } catch (error) {
       console.error('❌ Error processing queue:', error);
     } finally {
@@ -160,16 +187,18 @@ export class AssessmentService {
     }
   }
 
-  private async processNextBatch(): Promise<boolean> {
-    // Increase concurrent processing for higher load
-    const maxConcurrent = Math.min(MAX_CONCURRENT_ASSESSMENTS * 2, 4); // Allow up to 4 concurrent
+  private async processNextBatch(): Promise<{processed: number; hasMore: boolean}> {
+    const maxConcurrent = Math.min(MAX_CONCURRENT_ASSESSMENTS, 6); // Increased limit
     
     if (this.processingCount >= maxConcurrent) {
       console.log(`⏳ Max concurrent assessments reached (${this.processingCount}/${maxConcurrent})`);
-      return false;
+      return { processed: 0, hasMore: true };
     }
 
-    // Get pending items from queue (including failed items for retry)
+    const availableSlots = maxConcurrent - this.processingCount;
+    console.log(`🔍 Checking queue (${availableSlots} slots available)...`);
+
+    // Use atomic transaction to prevent race conditions
     const { data: pendingItems, error } = await supabase
       .from('assessment_queue')
       .select(`
@@ -177,27 +206,72 @@ export class AssessmentService {
         candidate:candidates(*)
       `)
       .in('status', ['pending', 'failed'])
+      .lt('retry_count', 3) // Don't retry items that have failed too many times
       .order('priority', { ascending: false })
       .order('created_at', { ascending: true })
-      .limit(maxConcurrent - this.processingCount);
+      .limit(Math.min(availableSlots, BATCH_SIZE));
 
     if (error) {
       console.error('Error fetching queue items:', error);
-      return false;
+      return { processed: 0, hasMore: false };
     }
 
     if (!pendingItems || pendingItems.length === 0) {
       console.log('📭 No pending or failed items in queue');
-      return false;
+      return { processed: 0, hasMore: false };
     }
 
-    console.log(`📋 Found ${pendingItems.length} items to process`);
+    console.log(`📋 Found ${pendingItems.length} items to process concurrently`);
 
-    // Process items concurrently
-    const processingPromises = pendingItems.map(item => this.processQueueItem(item));
-    await Promise.allSettled(processingPromises);
+    // Mark items as processing immediately to prevent race conditions
+    const itemIds = pendingItems.map(item => item.id);
+    const { error: updateError } = await supabase
+      .from('assessment_queue')
+      .update({ 
+        status: 'processing',
+        updated_at: new Date().toISOString()
+      })
+      .in('id', itemIds)
+      .eq('status', 'pending'); // Only update if still pending (avoid race conditions)
 
-    return pendingItems.length > 0;
+    if (updateError) {
+      console.error('Error marking items as processing:', updateError);
+      return { processed: 0, hasMore: true };
+    }
+
+    // Process items concurrently with proper error handling
+    const processingPromises = pendingItems.map(async (item, index) => {
+      try {
+        // Stagger the start times slightly to reduce load spikes
+        if (index > 0) {
+          await new Promise(resolve => setTimeout(resolve, index * 100));
+        }
+        return await this.processQueueItem(item);
+      } catch (error) {
+        console.error(`Error processing queue item ${item.id}:`, error);
+        return false;
+      }
+    });
+    
+    const results = await Promise.allSettled(processingPromises);
+    const successCount = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+    
+    console.log(`📊 Batch completed: ${successCount}/${pendingItems.length} items processed successfully`);
+
+    // Check if there are more items to process
+    const { data: remainingItems, error: checkError } = await supabase
+      .from('assessment_queue')
+      .select('id')
+      .in('status', ['pending', 'failed'])
+      .lt('retry_count', 3)
+      .limit(1);
+
+    const hasMore = !checkError && remainingItems && remainingItems.length > 0;
+    
+    return { 
+      processed: successCount, 
+      hasMore 
+    };
   }
 
   private async processQueueItem(queueItem: any) {

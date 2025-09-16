@@ -6,6 +6,7 @@ import { GenerateAssessment } from './GenerateAssessment';
 import { QueueStatus } from './QueueStatus';
 import { Button } from '../UI/Button';
 import { assessmentService } from '../../services/assessmentService';
+import { monitoringService } from '../../services/monitoringService';
 import { Assessment } from '../../types';
 import { exportToCSV } from '../../utils/csvExport';
 
@@ -46,9 +47,13 @@ export function Dashboard() {
     // Start queue monitoring for automatic processing
     assessmentService.startQueueMonitoring();
     
+    // Start system monitoring
+    monitoringService.startMonitoring();
+    
     return () => {
       clearInterval(interval);
       assessmentService.stopQueueMonitoring();
+      monitoringService.stopMonitoring();
     };
   }, []);
 
