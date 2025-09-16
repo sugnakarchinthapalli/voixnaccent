@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Role Test</title>
+</head>
+<body>
+    <h1>Service Role Client Test</h1>
+    <button onclick="testServiceRole()">Test Service Role</button>
+    <div id="results"></div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2';
+        
+        const SUPABASE_URL = 'https://zjozagphebwefxyarkct.supabase.co';
+        const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpqb3phZ3BoZWJ3ZWZ4eWFya2N0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDQ1OTE2MCwiZXhwIjoyMDcwMDM1MTYwfQ.pdvVYna84fp4D11MmXv5yIFkQkFT0SizHMxEftGrCGI';
+        
+        const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+        
+        window.testServiceRole = async function() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing...</p>';
+            
+            try {
+                console.log('Testing service role client...');
+                
+                // Test direct query
+                const { data, error } = await supabase
+                    .from('candidates')
+                    .select('*')
+                    .limit(1);
+                
+                if (error) {
+                    console.error('Error:', error);
+                    results.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                } else {
+                    console.log('Success:', data);
+                    results.innerHTML = `<p style="color: green;">Success! Found ${data?.length || 0} candidates</p>`;
+                }
+                
+            } catch (err) {
+                console.error('Exception:', err);
+                results.innerHTML = `<p style="color: red;">Exception: ${err.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

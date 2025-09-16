@@ -20,6 +20,8 @@ export function Dashboard() {
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
+    assessedBy: '',
+    overallGrade: '',
     framework: '', // 'CEFR' or 'Competency' or ''
     dateFrom: getFirstDayOfCurrentMonth(),
     dateTo: getLastDayOfCurrentMonth()
@@ -135,7 +137,6 @@ export function Dashboard() {
     setFilters({
       assessedBy: '',
       overallGrade: '',
-      framework: '',
       framework: '',
       dateFrom: getFirstDayOfCurrentMonth(),
       dateTo: getLastDayOfCurrentMonth()

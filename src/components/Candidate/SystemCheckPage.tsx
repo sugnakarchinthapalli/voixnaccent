@@ -78,11 +78,9 @@ export function SystemCheckPage() {
         return;
       }
       
-      const { data: candidates, error: candidateError } = await supabaseServiceRole
-        .from('candidates')
-        .select('*')
-        .eq('assessment_link_id', sessionId)
-        .execute();
+      // Use the internal client directly to avoid custom wrapper issues
+      const result = await supabaseServiceRole.from('candidates').select('*').eq('assessment_link_id', sessionId);
+      const { data: candidates, error: candidateError } = result;
 
       if (candidateError) {
         setError('Database error occurred. Please contact your administrator.');
