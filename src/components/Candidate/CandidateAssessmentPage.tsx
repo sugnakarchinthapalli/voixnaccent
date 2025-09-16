@@ -122,11 +122,10 @@ export function CandidateAssessmentPage() {
     
     // Fetch candidate data using the assessment link ID (session ID)
     // Use service role client to bypass RLS since candidates are not authenticated
-    const { data: candidates, error: candidateError } = await supabaseServiceRole
-      .from('candidates')
-      .select('*')
-      .eq('assessment_link_id', sessionId);
-
+      const { data: candidates, error: candidateError } = await supabaseServiceRole
+        .from('candidates')
+        .select('*')
+        .eq('assessment_link_id', sessionId);
     if (candidateError) {
       setError('Database error occurred. Please contact your administrator.');
       setLoadingCandidate(false);
