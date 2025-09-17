@@ -12,7 +12,6 @@ function App() {
       <Routes>
         {/* Public routes for candidate assessment flow - NO AuthWrapper */}
         <Route path="/commstest/:sessionId" element={<SystemCheckPage />} />
-        <Route path="/assessment/:sessionId" element={<CandidateAssessmentPage />} />
         
         {/* Protected routes for internal users - WITH AuthWrapper */}
         <Route path="/*" element={

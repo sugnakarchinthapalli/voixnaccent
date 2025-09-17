@@ -53,8 +53,27 @@ export function SystemCheckPage() {
   const [testMediaRecorder, setTestMediaRecorder] = useState<MediaRecorder | null>(null);
   
   // UI states
-  const [currentStep, setCurrentStep] = useState<'loading' | 'instructions' | 'system-check' | 'ready'>('loading');
+  const [currentStep, setCurrentStep] = useState<'loading' | 'instructions' | 'system-check' | 'assessment' | 'submitted'>('loading');
   const [acknowledged, setAcknowledged] = useState(false);
+  
+  // Assessment states - moved from CandidateAssessmentPage
+  const [question, setQuestion] = useState(null);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const [snapshots, setSnapshots] = useState([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(180); // 3 minutes
+  const [assessmentExpired, setAssessmentExpired] = useState(false);
+  const [tabFocusLost, setTabFocusLost] = useState(false);
+  
+  // Media recording states
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [timerRef, setTimerRef] = useState(null);
+  
+  // Constants
+  const MAX_RECORDING_TIME = 120; // 2 minutes
+  const ASSESSMENT_DURATION = 180; // 3 minutes
 
   useEffect(() => {
     if (!sessionId) {
@@ -282,18 +301,44 @@ export function SystemCheckPage() {
   /**
    * Proceed to actual assessment
    */
-  const proceedToAssessment = () => {
-    // Set flag in sessionStorage to indicate system check is completed
-    if (sessionId) {
-      sessionStorage.setItem(`systemCheck_${sessionId}`, 'completed');
+  const proceedToAssessment = async () => {
+    try {
+      // Load assessment question
+      console.log('Loading assessment question...');
+      // For now, set a dummy question - we'll implement question loading later
+      setQuestion({
+        id: 1,
+        text: "Tell me about a challenging project you worked on recently and how you overcame the obstacles you faced."
+      });
+      
+      // Start assessment timer
+      const startTime = Date.now();
+      localStorage.setItem(`assessmentStartTime_${sessionId}`, startTime.toString());
+      
+      const updateTimer = () => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const remaining = Math.max(0, ASSESSMENT_DURATION - elapsed);
+        setTimeRemaining(remaining);
+        
+        if (remaining <= 0) {
+          setAssessmentExpired(true);
+          return;
+        }
+        
+        setTimeout(updateTimer, 1000);
+      };
+      updateTimer();
+      
+      // Keep the existing media stream for recording
+      // Don't clean it up since we'll use it for assessment
+      
+      // Transition to assessment step
+      setCurrentStep('assessment');
+      
+    } catch (error) {
+      console.error('Error starting assessment:', error);
+      setError('Failed to start assessment. Please try again.');
     }
-    
-    // Clean up test stream
-    if (mediaStream) {
-      mediaStream.getTracks().forEach(track => track.stop());
-    }
-    
-    navigate(`/assessment/${sessionId}`);
   };
 
   /**
@@ -676,6 +721,151 @@ export function SystemCheckPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Assessment Step */}
+        {currentStep === 'assessment' && (
+          <div className="space-y-8">
+            {/* Timer Header */}
+            <div className="text-center">
+              <div className={`inline-flex items-center space-x-2 px-4 py-2 rounded-lg font-mono text-lg font-bold ${
+                timeRemaining <= 60 
+                  ? 'bg-red-100 text-red-800 border border-red-200' 
+                  : timeRemaining <= 120 
+                  ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                  : 'bg-blue-100 text-blue-800 border border-blue-200'
+              }`}>
+                <Timer className="h-5 w-5" />
+                <span>Time Remaining: {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}</span>
+              </div>
+            </div>
+
+            {/* Assessment Question */}
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Assessment Question</h2>
+              
+              {question && (
+                <div className="bg-blue-50 p-4 rounded-lg select-none">
+                  <p className="text-gray-700 leading-relaxed">{question.text}</p>
+                  <div className="mt-3 flex items-center text-xs text-blue-600">
+                    <Timer className="h-3 w-3 mr-1" />
+                    <span>Maximum 2 minutes to answer</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Recording Interface */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Video Feed */}
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Camera className="h-5 w-5 mr-2" />
+                  Video Feed
+                </h2>
+                
+                <div className="relative bg-gray-900 rounded-lg overflow-hidden">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full h-auto"
+                    style={{ maxHeight: '300px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Recording Controls */}
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Mic className="h-5 w-5 mr-2" />
+                  Record Your Answer
+                </h2>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-300'}`} />
+                      <span className="font-medium">
+                        {isRecording ? 'Recording...' : audioBlob ? 'Recording Complete' : 'Ready to record'}
+                      </span>
+                    </div>
+                    
+                    <div className="font-mono text-lg font-semibold">
+                      {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')} / {Math.floor(MAX_RECORDING_TIME / 60)}:{(MAX_RECORDING_TIME % 60).toString().padStart(2, '0')}
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-3">
+                    <Button
+                      onClick={() => console.log('Start recording')}
+                      disabled={isRecording || assessmentExpired}
+                      className="flex items-center space-x-2"
+                    >
+                      <Mic className="h-4 w-4" />
+                      <span>Start Recording</span>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => console.log('Stop recording')}
+                      disabled={!isRecording}
+                      variant="danger"
+                      className="flex items-center space-x-2"
+                    >
+                      <Square className="h-4 w-4" />
+                      <span>Stop Recording</span>
+                    </Button>
+                  </div>
+
+                  {/* Audio Playback */}
+                  {audioBlob && (
+                    <div className="pt-4 border-t">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Review Your Recording
+                      </label>
+                      <audio controls className="w-full">
+                        <source src={URL.createObjectURL(audioBlob)} type={audioBlob.type} />
+                        Your browser does not support the audio element.
+                      </audio>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="text-center">
+              <Button
+                onClick={() => setCurrentStep('submitted')}
+                disabled={!audioBlob || submitting || assessmentExpired}
+                loading={submitting}
+                className="flex items-center space-x-2"
+                size="lg"
+              >
+                <span>{submitting ? 'Submitting Assessment...' : 'Submit Assessment'}</span>
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Submitted Step */}
+        {currentStep === 'submitted' && (
+          <div className="text-center space-y-6">
+            <div className="mx-auto h-16 w-16 flex items-center justify-center bg-green-100 rounded-full">
+              <CheckCircle className="h-8 w-8 text-green-600" />
+            </div>
+            
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Assessment Submitted</h2>
+              <p className="text-gray-600 mb-4">
+                Thank you, {candidateData?.name}! Your voice assessment has been submitted successfully.
+              </p>
+              <p className="text-sm text-gray-500">
+                We will evaluate your response and let you know the next steps. You may reach out to your recruiter for more details.
+              </p>
             </div>
           </div>
         )}
