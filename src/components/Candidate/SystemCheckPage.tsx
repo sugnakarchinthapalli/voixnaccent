@@ -409,11 +409,19 @@ export function SystemCheckPage() {
       // Set camera ready state
       setCameraReady(true);
       
-      // Keep the existing media stream for recording
-      // Don't clean it up since we'll use it for assessment
-      
       // Transition to assessment step
       setCurrentStep('assessment');
+      
+      // Re-connect video stream to video element after state transition
+      setTimeout(() => {
+        if (mediaStream && videoRef.current) {
+          console.log('🔗 Re-connecting video stream to assessment video element...');
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.play().catch(err => {
+            console.error('Error playing video in assessment step:', err);
+          });
+        }
+      }, 100);
       
     } catch (error) {
       console.error('Error starting assessment:', error);
@@ -555,8 +563,11 @@ export function SystemCheckPage() {
       };
       
       recorder.onstop = () => {
-        console.log('Recording stopped, creating audio blob');
+        console.log('📼 MediaRecorder onstop event fired');
+        console.log('📼 Chunks collected:', chunks.length, 'chunks');
+        console.log('📼 Total size:', chunks.reduce((total, chunk) => total + chunk.size, 0), 'bytes');
         const audioBlob = new Blob(chunks, { type: selectedMimeType || 'audio/webm' });
+        console.log('📼 Audio blob created:', audioBlob.size, 'bytes');
         setAudioBlob(audioBlob);
       };
       
@@ -620,9 +631,8 @@ export function SystemCheckPage() {
   const stopRecording = () => {
     if (mediaRecorder && isRecording) {
       console.log('Stopping recording...');
-      mediaRecorder.stop();
-      setIsRecording(false);
       
+      // Clear all timers first
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
@@ -636,6 +646,23 @@ export function SystemCheckPage() {
       if (secondSnapshotTimerRef.current) {
         clearTimeout(secondSnapshotTimerRef.current);
         secondSnapshotTimerRef.current = null;
+      }
+      
+      // Set recording state to false immediately
+      setIsRecording(false);
+      
+      try {
+        // Check if recorder is still recording
+        if (mediaRecorder.state === 'recording') {
+          console.log('MediaRecorder is still recording, calling stop...');
+          mediaRecorder.stop();
+        } else {
+          console.log('MediaRecorder state:', mediaRecorder.state);
+        }
+      } catch (err) {
+        console.error('Error stopping MediaRecorder:', err);
+        // If stop() fails, we might need to create the audio blob manually
+        setError('Recording stopped but there was an issue processing the audio. Please try again.');
       }
       
       console.log('Recording stopped and timers cleared');
