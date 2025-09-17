@@ -13,17 +13,31 @@ import {
   Wifi,
   Timer,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  Send,
+  Clock,
+  User,
+  Mail
 } from 'lucide-react';
 import { Button } from '../UI/Button';
+import { questionService } from '../../services/questionService';
+import { candidateSubmissionService } from '../../services/candidateSubmissionService';
+import { storageService } from '../../services/storageService';
+import { supabase } from '../../lib/supabase';
 import { supabaseServiceRole } from '../../lib/supabaseServiceRole';
-import { Candidate } from '../../types';
+import { Question, Candidate } from '../../types';
 
 interface SystemCheckResult {
   camera: boolean;
   microphone: boolean;
   speaker: boolean;
   connection: boolean;
+}
+
+interface Snapshot {
+  id: number;
+  blob: Blob;
+  timestamp: string;
 }
 
 export function SystemCheckPage() {
@@ -33,6 +47,11 @@ export function SystemCheckPage() {
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const firstSnapshotTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const secondSnapshotTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const questionTextRef = useRef<HTMLDivElement>(null);
   
   // State
   const [candidateData, setCandidateData] = useState<Candidate | null>(null);
@@ -57,19 +76,21 @@ export function SystemCheckPage() {
   const [acknowledged, setAcknowledged] = useState(false);
   
   // Assessment states - moved from CandidateAssessmentPage
-  const [question, setQuestion] = useState(null);
-  const [audioBlob, setAudioBlob] = useState(null);
-  const [snapshots, setSnapshots] = useState([]);
+  const [question, setQuestion] = useState<Question | null>(null);
+  const [loadingQuestion, setLoadingQuestion] = useState(true);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(180); // 3 minutes
   const [assessmentExpired, setAssessmentExpired] = useState(false);
   const [tabFocusLost, setTabFocusLost] = useState(false);
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
   
   // Media recording states
-  const [mediaRecorder, setMediaRecorder] = useState(null);
-  const [timerRef, setTimerRef] = useState(null);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   
   // Constants
   const MAX_RECORDING_TIME = 120; // 2 minutes
@@ -299,35 +320,84 @@ export function SystemCheckPage() {
   };
 
   /**
+   * Fetches a random assessment question from the database
+   */
+  const fetchRandomQuestion = async () => {
+    try {
+      setLoadingQuestion(true);
+      const randomQuestion = await questionService.getRandomQuestion();
+      setQuestion(randomQuestion);
+      setError('');
+    } catch (err) {
+      setError('Failed to load assessment question. Please refresh the page.');
+      console.error('Error loading question:', err);
+    } finally {
+      setLoadingQuestion(false);
+    }
+  };
+
+  /**
+   * Initializes and manages the 3-minute assessment timer
+   * Uses localStorage to persist timer across page refreshes
+   */
+  const initializeTimer = () => {
+    const storageKey = `assessmentStartTime_${sessionId}`;
+    const storedStartTime = localStorage.getItem(storageKey);
+    
+    let startTime;
+    
+    if (storedStartTime) {
+      startTime = parseInt(storedStartTime, 10);
+    } else {
+      startTime = Date.now();
+      localStorage.setItem(storageKey, startTime.toString());
+    }
+    
+    setSessionStartTime(startTime);
+    
+    // Start countdown timer - UI shows 3 minutes but database expires in 4
+    const updateTimer = () => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const remaining = Math.max(0, ASSESSMENT_DURATION - elapsed);
+      
+      setTimeRemaining(remaining);
+      
+      if (remaining <= 0) {
+        setAssessmentExpired(true);
+        localStorage.removeItem(storageKey);
+        return;
+      }
+      
+      setTimeout(updateTimer, 1000);
+    };
+    
+    updateTimer();
+  };
+
+  /**
    * Proceed to actual assessment
    */
   const proceedToAssessment = async () => {
     try {
-      // Load assessment question
-      console.log('Loading assessment question...');
-      // For now, set a dummy question - we'll implement question loading later
-      setQuestion({
-        id: 1,
-        text: "Tell me about a challenging project you worked on recently and how you overcame the obstacles you faced."
-      });
+      // Load a random assessment question
+      await fetchRandomQuestion();
       
-      // Start assessment timer
-      const startTime = Date.now();
-      localStorage.setItem(`assessmentStartTime_${sessionId}`, startTime.toString());
+      // Initialize assessment timer
+      initializeTimer();
       
-      const updateTimer = () => {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        const remaining = Math.max(0, ASSESSMENT_DURATION - elapsed);
-        setTimeRemaining(remaining);
-        
-        if (remaining <= 0) {
-          setAssessmentExpired(true);
-          return;
-        }
-        
-        setTimeout(updateTimer, 1000);
-      };
-      updateTimer();
+      // Update candidate status to in_progress when they access the assessment
+      if (candidateData) {
+        await supabaseServiceRole
+          .from('candidates')
+          .update({ assessment_status: 'in_progress' })
+          .eq('id', candidateData.id);
+      }
+      
+      // Set up proctoring
+      setupProctoring();
+      
+      // Set camera ready state
+      setCameraReady(true);
       
       // Keep the existing media stream for recording
       // Don't clean it up since we'll use it for assessment
@@ -364,6 +434,393 @@ export function SystemCheckPage() {
     // Restart connection check
     checkConnection();
   };
+
+  /**
+   * Sets up proctoring features including tab focus detection and copy protection
+   */
+  const setupProctoring = () => {
+    // Detect when user switches tabs or minimizes window
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        setTabFocusLost(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Prevent copying of assessment question text
+    const preventCopyEvents = (e: Event) => {
+      e.preventDefault();
+      return false;
+    };
+
+    const questionElement = questionTextRef.current;
+    if (questionElement) {
+      questionElement.addEventListener('copy', preventCopyEvents);
+      questionElement.addEventListener('cut', preventCopyEvents);
+      questionElement.addEventListener('selectstart', preventCopyEvents);
+      questionElement.addEventListener('contextmenu', preventCopyEvents);
+    }
+
+    // Page navigation protection
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isRecording) {
+        e.preventDefault();
+        e.returnValue = 'You have an active recording. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+    
+    const handlePopState = (e: PopStateEvent) => {
+      if (isRecording) {
+        const confirmLeave = window.confirm('You have an active recording. Are you sure you want to go back?');
+        if (!confirmLeave) {
+          window.history.pushState(null, '', window.location.href);
+        }
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+    window.history.pushState(null, '', window.location.href);
+
+    // Cleanup function
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+      if (questionElement) {
+        questionElement.removeEventListener('copy', preventCopyEvents);
+        questionElement.removeEventListener('cut', preventCopyEvents);
+        questionElement.removeEventListener('selectstart', preventCopyEvents);
+        questionElement.removeEventListener('contextmenu', preventCopyEvents);
+      }
+    };
+  };
+
+  /**
+   * Captures a webcam snapshot for identity verification
+   */
+  /**
+   * Starts audio recording with automatic snapshot scheduling
+   */
+  const startRecording = async () => {
+    if (!mediaStream || assessmentExpired) {
+      setError('Cannot start recording - assessment expired or no media stream available');
+      return;
+    }
+
+    try {
+      console.log('Starting audio recording...');
+      
+      const audioTracks = mediaStream.getAudioTracks();
+      const audioStream = new MediaStream(audioTracks);
+      
+      const mimeTypes = [
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg',
+        'audio/wav'
+      ];
+      
+      let selectedMimeType = '';
+      for (const mimeType of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(mimeType)) {
+          selectedMimeType = mimeType;
+          console.log('Using MIME type:', selectedMimeType);
+          break;
+        }
+      }
+      
+      const recorder = new MediaRecorder(audioStream, 
+        selectedMimeType ? { mimeType: selectedMimeType } : {}
+      );
+      
+      const chunks: Blob[] = [];
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+      
+      recorder.onstop = () => {
+        console.log('Recording stopped, creating audio blob');
+        const audioBlob = new Blob(chunks, { type: selectedMimeType || 'audio/webm' });
+        setAudioBlob(audioBlob);
+      };
+      
+      recorder.onerror = (event) => {
+        console.error('MediaRecorder error:', event);
+        setError('Recording error occurred');
+      };
+      
+      recorder.start(1000);
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setRecordingTime(0);
+      setSnapshots([]);
+      setError('');
+      
+      console.log('Starting recording timer...');
+      const startTime = Date.now();
+      
+      const updateTimer = () => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        console.log(`Timer update: ${elapsed}s`);
+        setRecordingTime(elapsed);
+        
+        if (elapsed >= MAX_RECORDING_TIME) {
+          console.log('Max recording time reached, stopping...');
+          stopRecording();
+          return;
+        }
+        
+        timerRef.current = setTimeout(updateTimer, 1000);
+      };
+      
+      timerRef.current = setTimeout(updateTimer, 1000);
+      
+      // Schedule snapshots
+      console.log('📸 Scheduling snapshots...');
+      
+      // First snapshot after 5 seconds
+      firstSnapshotTimerRef.current = setTimeout(() => {
+        console.log('📸 Time for first snapshot!');
+        takeSnapshot('first');
+      }, 5000);
+      
+      // Second snapshot after 20 seconds
+      secondSnapshotTimerRef.current = setTimeout(() => {
+        console.log('📸 Time for second snapshot!');
+        takeSnapshot('second');
+      }, 20000);
+      
+      console.log('Recording started successfully');
+      
+    } catch (err) {
+      console.error('Error starting recording:', err);
+      setError(`Failed to start recording: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  /**
+   * Stops the current recording and clears all timers
+   */
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      console.log('Stopping recording...');
+      mediaRecorder.stop();
+      setIsRecording(false);
+      
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      
+      if (firstSnapshotTimerRef.current) {
+        clearTimeout(firstSnapshotTimerRef.current);
+        firstSnapshotTimerRef.current = null;
+      }
+      
+      if (secondSnapshotTimerRef.current) {
+        clearTimeout(secondSnapshotTimerRef.current);
+        secondSnapshotTimerRef.current = null;
+      }
+      
+      console.log('Recording stopped and timers cleared');
+    }
+  };
+
+  const takeSnapshot = (snapshotType: 'first' | 'second') => {
+    console.log(`📸 Taking ${snapshotType} snapshot...`);
+    
+    if (!videoRef.current || !canvasRef.current) {
+      console.error('❌ Video or canvas not available');
+      return;
+    }
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.error('❌ Video not ready, dimensions:', video.videoWidth, 'x', video.videoHeight);
+      return;
+    }
+    
+    try {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        console.error('❌ No canvas context');
+        return;
+      }
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      console.log(`✅ Canvas set to: ${canvas.width}x${canvas.height}`);
+      
+      ctx.drawImage(video, 0, 0);
+      console.log('✅ Video frame drawn to canvas');
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          console.log(`✅ ${snapshotType} snapshot created! Size: ${blob.size} bytes`);
+          
+          const snapshot: Snapshot = {
+            id: Date.now(),
+            blob,
+            timestamp: new Date().toLocaleTimeString()
+          };
+          
+          setSnapshots(prev => {
+            const updated = [...prev, snapshot];
+            console.log(`✅ Snapshot added! Total snapshots: ${updated.length}`);
+            return updated;
+          });
+        } else {
+          console.error(`❌ Failed to create blob for ${snapshotType} snapshot`);
+        }
+      }, 'image/jpeg', 0.8);
+      
+    } catch (err) {
+      console.error(`❌ Error taking ${snapshotType} snapshot:`, err);
+    }
+  };
+
+  /**
+   * Handles the final assessment submission process
+   * Uploads audio and snapshot, updates candidate record, and triggers AI processing
+   */
+  const handleSubmitAssessment = async () => {
+    if (!candidateData) {
+      setError('Candidate data not found');
+      return;
+    }
+    
+    if (!audioBlob) {
+      setError('Please record your answer first');
+      return;
+    }
+    
+    if (snapshots.length < 2) {
+      setError('Identity verification incomplete. Please ensure recording captured verification snapshots.');
+      return;
+    }
+    
+    if (!question) {
+      setError('No question available. Please refresh the page.');
+      return;
+    }
+
+    if (assessmentExpired) {
+      setError('Assessment time has expired. Cannot submit.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+
+    try {
+      console.log('Starting assessment submission...');
+      
+      // Upload recorded audio to Supabase Storage
+      console.log('Uploading audio file...');
+      const audioUrl = await storageService.uploadAudioFile(
+        new File([audioBlob], `recording-${Date.now()}.webm`, { type: audioBlob.type }),
+        true // Use service role for candidate submissions
+      );
+      console.log('Audio uploaded:', audioUrl);
+      
+      // Upload identity verification snapshot
+      console.log('Uploading identity verification snapshot...');
+      const snapshotUrl = await storageService.uploadImageFile(
+        snapshots[0].blob,
+        `snapshot-${Date.now()}.jpg`,
+        true // Use service role for candidate submissions
+      );
+      console.log('Snapshot uploaded:', snapshotUrl);
+      
+      // Compile proctoring data for review
+      const proctoringFlags = {
+        tab_focus_lost: tabFocusLost,
+        session_id: sessionId,
+        recording_duration: recordingTime,
+        snapshots_captured: snapshots.length,
+        submission_timestamp: new Date().toISOString()
+      };
+      
+      // Update candidate record with assessment data and mark as completed
+      console.log('Updating candidate with assessment data...');
+      const { error: updateError } = await supabaseServiceRole
+        .from('candidates')
+        .update({
+          audio_source: audioUrl,
+          snapshot_url: snapshotUrl,
+          assessment_status: 'completed',
+          proctoring_flags: proctoringFlags
+        })
+        .eq('id', candidateData.id);
+
+      if (updateError) {
+        throw new Error(`Failed to update candidate: ${updateError.message}`);
+      }
+
+      // Trigger AI assessment processing
+      console.log('Triggering AI assessment processing...');
+      await candidateSubmissionService.processExistingCandidate(candidateData.id, question.id);
+      
+      // Clean up timer data
+      localStorage.removeItem(`assessmentStartTime_${sessionId}`);
+      
+      setCurrentStep('submitted');
+      
+    } catch (err) {
+      console.error('Error submitting assessment:', err);
+      setError(err instanceof Error ? err.message : 'Failed to submit assessment. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  /**
+   * Cleanup function to stop media streams and clear timers
+   */
+  const cleanup = () => {
+    console.log('🧹 Starting cleanup...');
+    
+    if (mediaStream) {
+      console.log('🧹 Stopping media stream tracks...');
+      mediaStream.getTracks().forEach(track => track.stop());
+    }
+    
+    if (timerRef.current) {
+      console.log('🧹 Clearing timer...');
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    if (firstSnapshotTimerRef.current) {
+      console.log('🧹 Clearing first snapshot timer...');
+      clearTimeout(firstSnapshotTimerRef.current);
+      firstSnapshotTimerRef.current = null;
+    }
+    
+    if (secondSnapshotTimerRef.current) {
+      console.log('🧹 Clearing second snapshot timer...');
+      clearTimeout(secondSnapshotTimerRef.current);
+      secondSnapshotTimerRef.current = null;
+    }
+    
+    console.log('🧹 Cleanup completed');
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, []);
 
   const allSystemsReady = systemCheck.camera && systemCheck.microphone && systemCheck.speaker && systemCheck.connection;
 
@@ -747,7 +1204,11 @@ export function SystemCheckPage() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Assessment Question</h2>
               
               {question && (
-                <div className="bg-blue-50 p-4 rounded-lg select-none">
+                <div 
+                  ref={questionTextRef}
+                  className="bg-blue-50 p-4 rounded-lg select-none"
+                  style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none' }}
+                >
                   <p className="text-gray-700 leading-relaxed">{question.text}</p>
                   <div className="mt-3 flex items-center text-xs text-blue-600">
                     <Timer className="h-3 w-3 mr-1" />
@@ -775,6 +1236,7 @@ export function SystemCheckPage() {
                     className="w-full h-auto"
                     style={{ maxHeight: '300px' }}
                   />
+                  <canvas ref={canvasRef} className="hidden" />
                 </div>
               </div>
 
@@ -801,8 +1263,8 @@ export function SystemCheckPage() {
                   
                   <div className="flex space-x-3">
                     <Button
-                      onClick={() => console.log('Start recording')}
-                      disabled={isRecording || assessmentExpired}
+                      onClick={startRecording}
+                      disabled={isRecording || assessmentExpired || !cameraReady}
                       className="flex items-center space-x-2"
                     >
                       <Mic className="h-4 w-4" />
@@ -810,7 +1272,7 @@ export function SystemCheckPage() {
                     </Button>
                     
                     <Button
-                      onClick={() => console.log('Stop recording')}
+                      onClick={stopRecording}
                       disabled={!isRecording}
                       variant="danger"
                       className="flex items-center space-x-2"
@@ -838,13 +1300,14 @@ export function SystemCheckPage() {
 
             {/* Submit Button */}
             <div className="text-center">
-              <Button
-                onClick={() => setCurrentStep('submitted')}
+            <Button
+                onClick={handleSubmitAssessment}
                 disabled={!audioBlob || submitting || assessmentExpired}
                 loading={submitting}
                 className="flex items-center space-x-2"
                 size="lg"
               >
+                <Send className="h-4 w-4" />
                 <span>{submitting ? 'Submitting Assessment...' : 'Submit Assessment'}</span>
               </Button>
             </div>
