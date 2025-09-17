@@ -97,7 +97,12 @@ export function SystemCheckPage() {
   const ASSESSMENT_DURATION = 180; // 3 minutes
 
   useEffect(() => {
+    console.log('🔍 SystemCheckPage loaded');
+    console.log('🔍 sessionId from URL:', sessionId);
+    console.log('🔍 Current URL:', window.location.href);
+    
     if (!sessionId) {
+      console.error('❌ No sessionId found in URL parameters');
       setError('Invalid assessment link. Please contact your administrator.');
       return;
     }
@@ -112,23 +117,32 @@ export function SystemCheckPage() {
     try {
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       
+      console.log('🔍 Validating sessionId:', sessionId);
+      console.log('🔍 UUID regex test:', uuidRegex.test(sessionId));
+      
       if (!sessionId || !uuidRegex.test(sessionId)) {
+        console.error('❌ Invalid sessionId format');
         setError('Invalid assessment link format. Please contact your administrator.');
         setLoading(false);
         return;
       }
       
       // Use the internal client directly to avoid custom wrapper issues
+      console.log('🔍 Querying database for candidate with assessment_link_id:', sessionId);
       const result = await supabaseServiceRole.from('candidates').select('*').eq('assessment_link_id', sessionId);
       const { data: candidates, error: candidateError } = result;
 
+      console.log('🔍 Database query result:', { candidates, candidateError });
+
       if (candidateError) {
+        console.error('❌ Database error:', candidateError);
         setError('Database error occurred. Please contact your administrator.');
         setLoading(false);
         return;
       }
 
       if (!candidates || candidates.length === 0) {
+        console.error('❌ No candidates found for sessionId:', sessionId);
         setError('Invalid assessment link or assessment not found. Please contact your administrator.');
         setLoading(false);
         return;
