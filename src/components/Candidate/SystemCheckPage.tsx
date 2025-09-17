@@ -97,12 +97,7 @@ export function SystemCheckPage() {
   const ASSESSMENT_DURATION = 180; // 3 minutes
 
   useEffect(() => {
-    console.log('🔍 SystemCheckPage loaded');
-    console.log('🔍 sessionId from URL:', sessionId);
-    console.log('🔍 Current URL:', window.location.href);
-    
     if (!sessionId) {
-      console.error('❌ No sessionId found in URL parameters');
       setError('Invalid assessment link. Please contact your administrator.');
       return;
     }
@@ -127,9 +122,9 @@ export function SystemCheckPage() {
         return;
       }
       
-      // Use the internal client directly to avoid custom wrapper issues
+      // Query database for candidate with assessment_link_id
       console.log('🔍 Querying database for candidate with assessment_link_id:', sessionId);
-      const result = await supabaseServiceRole.from('candidates').select('*').eq('assessment_link_id', sessionId);
+      const result = await supabaseServiceRole.from('candidates').select('*').eq('assessment_link_id', sessionId).execute();
       const { data: candidates, error: candidateError } = result;
 
       console.log('🔍 Database query result:', { candidates, candidateError });
@@ -404,7 +399,8 @@ export function SystemCheckPage() {
         await supabaseServiceRole
           .from('candidates')
           .update({ assessment_status: 'in_progress' })
-          .eq('id', candidateData.id);
+          .eq('id', candidateData.id)
+          .execute();
       }
       
       // Set up proctoring
@@ -774,7 +770,8 @@ export function SystemCheckPage() {
           assessment_status: 'completed',
           proctoring_flags: proctoringFlags
         })
-        .eq('id', candidateData.id);
+        .eq('id', candidateData.id)
+        .execute();
 
       if (updateError) {
         throw new Error(`Failed to update candidate: ${updateError.message}`);
