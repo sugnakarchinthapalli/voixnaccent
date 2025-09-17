@@ -112,32 +112,24 @@ export function SystemCheckPage() {
     try {
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       
-      console.log('🔍 Validating sessionId:', sessionId);
-      console.log('🔍 UUID regex test:', uuidRegex.test(sessionId));
       
       if (!sessionId || !uuidRegex.test(sessionId)) {
-        console.error('❌ Invalid sessionId format');
         setError('Invalid assessment link format. Please contact your administrator.');
         setLoading(false);
         return;
       }
       
       // Query database for candidate with assessment_link_id
-      console.log('🔍 Querying database for candidate with assessment_link_id:', sessionId);
       const result = await supabaseServiceRole.from('candidates').select('*').eq('assessment_link_id', sessionId).execute();
       const { data: candidates, error: candidateError } = result;
 
-      console.log('🔍 Database query result:', { candidates, candidateError });
-
       if (candidateError) {
-        console.error('❌ Database error:', candidateError);
         setError('Database error occurred. Please contact your administrator.');
         setLoading(false);
         return;
       }
 
       if (!candidates || candidates.length === 0) {
-        console.error('❌ No candidates found for sessionId:', sessionId);
         setError('Invalid assessment link or assessment not found. Please contact your administrator.');
         setLoading(false);
         return;
@@ -227,10 +219,8 @@ export function SystemCheckPage() {
         microphone: audioTracks.length > 0 && audioTracks[0].readyState === 'live'
       }));
 
-      console.log('✅ Camera and microphone access granted');
       
     } catch (err) {
-      console.error('❌ Error accessing camera/microphone:', err);
       setError(`Unable to access camera and microphone: ${err instanceof Error ? err.message : 'Unknown error'}. Please ensure you've granted permissions and try again.`);
       
       setSystemCheck(prev => ({
@@ -270,11 +260,9 @@ export function SystemCheckPage() {
         const blob = new Blob(chunks, { type: 'audio/webm' });
         setTestRecording(blob);
         setIsRecordingTest(false);
-        console.log('✅ Test recording completed');
       };
       
       recorder.onerror = (event) => {
-        console.error('❌ Recording error:', event);
         setError('Recording test failed. Please try again.');
         setIsRecordingTest(false);
       };
@@ -290,7 +278,6 @@ export function SystemCheckPage() {
       }, 3000);
       
     } catch (err) {
-      console.error('❌ Error testing audio recording:', err);
       setError('Audio recording test failed. Please try again.');
       setIsRecordingTest(false);
     }
@@ -312,17 +299,14 @@ export function SystemCheckPage() {
         audioRef.current.onended = () => {
           setIsTestingAudio(false);
           setSystemCheck(prev => ({ ...prev, speaker: true }));
-          console.log('✅ Audio playback test completed');
         };
         
         audioRef.current.onerror = () => {
           setIsTestingAudio(false);
           setError('Audio playback test failed. Please check your speakers.');
-          console.error('❌ Audio playback failed');
         };
       }
     } catch (err) {
-      console.error('❌ Error testing audio playback:', err);
       setError('Audio playback test failed. Please check your speakers.');
       setIsTestingAudio(false);
     }
@@ -415,7 +399,6 @@ export function SystemCheckPage() {
       // Re-connect video stream to video element after state transition
       setTimeout(() => {
         if (mediaStream && videoRef.current) {
-          console.log('🔗 Re-connecting video stream to assessment video element...');
           videoRef.current.srcObject = mediaStream;
           videoRef.current.play().catch(err => {
             console.error('Error playing video in assessment step:', err);
@@ -529,8 +512,6 @@ export function SystemCheckPage() {
     }
 
     try {
-      console.log('Starting audio recording...');
-      
       const audioTracks = mediaStream.getAudioTracks();
       const audioStream = new MediaStream(audioTracks);
       
@@ -545,7 +526,6 @@ export function SystemCheckPage() {
       for (const mimeType of mimeTypes) {
         if (MediaRecorder.isTypeSupported(mimeType)) {
           selectedMimeType = mimeType;
-          console.log('Using MIME type:', selectedMimeType);
           break;
         }
       }
@@ -563,11 +543,7 @@ export function SystemCheckPage() {
       };
       
       recorder.onstop = () => {
-        console.log('📼 MediaRecorder onstop event fired');
-        console.log('📼 Chunks collected:', chunks.length, 'chunks');
-        console.log('📼 Total size:', chunks.reduce((total, chunk) => total + chunk.size, 0), 'bytes');
         const audioBlob = new Blob(chunks, { type: selectedMimeType || 'audio/webm' });
-        console.log('📼 Audio blob created:', audioBlob.size, 'bytes');
         setAudioBlob(audioBlob);
       };
       
@@ -583,16 +559,13 @@ export function SystemCheckPage() {
       setSnapshots([]);
       setError('');
       
-      console.log('Starting recording timer...');
       const startTime = Date.now();
       
       const updateTimer = () => {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        console.log(`Timer update: ${elapsed}s`);
         setRecordingTime(elapsed);
         
         if (elapsed >= MAX_RECORDING_TIME) {
-          console.log('Max recording time reached, stopping...');
           stopRecording();
           return;
         }
@@ -603,21 +576,15 @@ export function SystemCheckPage() {
       timerRef.current = setTimeout(updateTimer, 1000);
       
       // Schedule snapshots
-      console.log('📸 Scheduling snapshots...');
-      
       // First snapshot after 5 seconds
       firstSnapshotTimerRef.current = setTimeout(() => {
-        console.log('📸 Time for first snapshot!');
         takeSnapshot('first');
       }, 5000);
       
       // Second snapshot after 20 seconds
       secondSnapshotTimerRef.current = setTimeout(() => {
-        console.log('📸 Time for second snapshot!');
         takeSnapshot('second');
       }, 20000);
-      
-      console.log('Recording started successfully');
       
     } catch (err) {
       console.error('Error starting recording:', err);
@@ -630,8 +597,6 @@ export function SystemCheckPage() {
    */
   const stopRecording = () => {
     if (mediaRecorder && isRecording) {
-      console.log('Stopping recording...');
-      
       // Clear all timers first
       if (timerRef.current) {
         clearTimeout(timerRef.current);
@@ -654,10 +619,7 @@ export function SystemCheckPage() {
       try {
         // Check if recorder is still recording
         if (mediaRecorder.state === 'recording') {
-          console.log('MediaRecorder is still recording, calling stop...');
           mediaRecorder.stop();
-        } else {
-          console.log('MediaRecorder state:', mediaRecorder.state);
         }
       } catch (err) {
         console.error('Error stopping MediaRecorder:', err);
@@ -665,15 +627,11 @@ export function SystemCheckPage() {
         setError('Recording stopped but there was an issue processing the audio. Please try again.');
       }
       
-      console.log('Recording stopped and timers cleared');
     }
   };
 
   const takeSnapshot = (snapshotType: 'first' | 'second') => {
-    console.log(`📸 Taking ${snapshotType} snapshot...`);
-    
     if (!videoRef.current || !canvasRef.current) {
-      console.error('❌ Video or canvas not available');
       return;
     }
     
@@ -681,47 +639,34 @@ export function SystemCheckPage() {
     const canvas = canvasRef.current;
     
     if (video.videoWidth === 0 || video.videoHeight === 0) {
-      console.error('❌ Video not ready, dimensions:', video.videoWidth, 'x', video.videoHeight);
       return;
     }
     
     try {
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        console.error('❌ No canvas context');
         return;
       }
       
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       
-      console.log(`✅ Canvas set to: ${canvas.width}x${canvas.height}`);
-      
       ctx.drawImage(video, 0, 0);
-      console.log('✅ Video frame drawn to canvas');
       
       canvas.toBlob((blob) => {
         if (blob) {
-          console.log(`✅ ${snapshotType} snapshot created! Size: ${blob.size} bytes`);
-          
           const snapshot: Snapshot = {
             id: Date.now(),
             blob,
             timestamp: new Date().toLocaleTimeString()
           };
           
-          setSnapshots(prev => {
-            const updated = [...prev, snapshot];
-            console.log(`✅ Snapshot added! Total snapshots: ${updated.length}`);
-            return updated;
-          });
-        } else {
-          console.error(`❌ Failed to create blob for ${snapshotType} snapshot`);
+          setSnapshots(prev => [...prev, snapshot]);
         }
       }, 'image/jpeg', 0.8);
       
     } catch (err) {
-      console.error(`❌ Error taking ${snapshotType} snapshot:`, err);
+      // Silent fail for snapshots
     }
   };
 
@@ -759,24 +704,18 @@ export function SystemCheckPage() {
     setError('');
 
     try {
-      console.log('Starting assessment submission...');
-      
       // Upload recorded audio to Supabase Storage
-      console.log('Uploading audio file...');
       const audioUrl = await storageService.uploadAudioFile(
         new File([audioBlob], `recording-${Date.now()}.webm`, { type: audioBlob.type }),
         true // Use service role for candidate submissions
       );
-      console.log('Audio uploaded:', audioUrl);
       
       // Upload identity verification snapshot
-      console.log('Uploading identity verification snapshot...');
       const snapshotUrl = await storageService.uploadImageFile(
         snapshots[0].blob,
         `snapshot-${Date.now()}.jpg`,
         true // Use service role for candidate submissions
       );
-      console.log('Snapshot uploaded:', snapshotUrl);
       
       // Compile proctoring data for review
       const proctoringFlags = {
@@ -788,7 +727,6 @@ export function SystemCheckPage() {
       };
       
       // Update candidate record with assessment data and mark as completed
-      console.log('Updating candidate with assessment data...');
       const { error: updateError } = await supabaseServiceRole
         .from('candidates')
         .update({
@@ -805,7 +743,6 @@ export function SystemCheckPage() {
       }
 
       // Trigger AI assessment processing
-      console.log('Triggering AI assessment processing...');
       await candidateSubmissionService.processExistingCandidate(candidateData.id, question.id);
       
       // Clean up timer data
@@ -825,32 +762,24 @@ export function SystemCheckPage() {
    * Cleanup function to stop media streams and clear timers
    */
   const cleanup = () => {
-    console.log('🧹 Starting cleanup...');
-    
     if (mediaStream) {
-      console.log('🧹 Stopping media stream tracks...');
       mediaStream.getTracks().forEach(track => track.stop());
     }
     
     if (timerRef.current) {
-      console.log('🧹 Clearing timer...');
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
     
     if (firstSnapshotTimerRef.current) {
-      console.log('🧹 Clearing first snapshot timer...');
       clearTimeout(firstSnapshotTimerRef.current);
       firstSnapshotTimerRef.current = null;
     }
     
     if (secondSnapshotTimerRef.current) {
-      console.log('🧹 Clearing second snapshot timer...');
       clearTimeout(secondSnapshotTimerRef.current);
       secondSnapshotTimerRef.current = null;
     }
-    
-    console.log('🧹 Cleanup completed');
   };
 
   // Cleanup on unmount
@@ -895,12 +824,14 @@ export function SystemCheckPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50 p-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Voice Assessment - System Check</h1>
-          <p className="text-gray-600">
-            Welcome {candidateData?.name}! Let's make sure your system is ready for the assessment.
-          </p>
-        </div>
+        {currentStep !== 'submitted' && (
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Voice Assessment - System Check</h1>
+            <p className="text-gray-600">
+              Welcome {candidateData?.name}! Let's make sure your system is ready for the assessment.
+            </p>
+          </div>
+        )}
 
         {/* Instructions Step */}
         {currentStep === 'instructions' && (
