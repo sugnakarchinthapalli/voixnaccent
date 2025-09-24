@@ -19,7 +19,7 @@ const MAX_DELAY = 20000; // 20 seconds - reduced max delay
  * 4. Provide comprehensive assessment feedback
  */
 const CEFR_ASSESSMENT_PROMPT = `
-You are an expert language assessment AI specializing in evaluating spoken English using the CEFR (Common European Framework of Reference for Languages) framework. Analyze the provided audio recording and assess the speaker's proficiency level based on the CEFR Qualitative Aspects of Spoken Language Use.
+You are an expert language assessment AI specializing in evaluating spoken language using the CEFR (Common European Framework of Reference for Languages) framework. Analyze the provided audio recording and assess the speaker's proficiency level based on the CEFR Qualitative Aspects of Spoken Language Use.
 
 **CRITICAL: STRICT EVALUATION REQUIREMENTS**
 - Apply EXTREMELY STRINGENT criteria for each CEFR level
@@ -38,10 +38,10 @@ Use the CEFR Qualitative Aspects of Spoken Language Use (Table 3, CEFR 3.3) whic
 - **Coherence**: Logical organization and linking of ideas
 
 **CEFR Scoring Criteria (EXTREMELY STRICT APPLICATION):**
-- **C2 (Mastery)**: Near-native proficiency with sophisticated language use, virtually no errors, effortless expression of complex abstract concepts, extensive vocabulary, perfect coherence. REQUIRES: 90+ seconds of sustained, sophisticated discourse.
-- **C1 (Proficiency)**: Advanced level with complex language structures, rare minor errors, excellent fluency, handles abstract topics with ease. REQUIRES: 75+ seconds with clear evidence of advanced structures and vocabulary.
-- **B2 (Upper-Intermediate)**: Independent user with good range, occasional errors that don't impede communication, generally fluent, can express opinions and arguments clearly. REQUIRES: 60+ seconds with clear argumentation and varied vocabulary.
-- **B1 (Intermediate)**: Basic independent user, limited range, noticeable errors but generally comprehensible, some hesitation, can handle familiar topics. REQUIRES: 45+ seconds with basic coherent expression.
+- **C2 (Mastery)**: Near-native proficiency with sophisticated language use, virtually no errors, effortless expression of complex abstract concepts, extensive vocabulary, perfect coherence. REQUIRES: 30+ seconds of sustained, sophisticated discourse.
+- **C1 (Proficiency)**: Advanced level with complex language structures, rare minor errors, excellent fluency, handles abstract topics with ease. REQUIRES: 30+ seconds with clear evidence of advanced structures and vocabulary.
+- **B2 (Upper-Intermediate)**: Independent user with good range, occasional errors that don't impede communication, generally fluent, can express opinions and arguments clearly. REQUIRES: 30+ seconds with clear argumentation and varied vocabulary.
+- **B1 (Intermediate)**: Basic independent user, limited range, noticeable errors but generally comprehensible, some hesitation, can handle familiar topics. REQUIRES: 30+ seconds with basic coherent expression.
 - **A2 (Elementary)**: Basic user with simple language, frequent errors, limited vocabulary, significant hesitation, can handle very simple topics only. MAXIMUM for responses under 30 seconds regardless of quality.
 - **A1 (Beginner)**: Very basic language use, many errors, very limited vocabulary and structures, frequent breakdowns, minimal communication ability.
 
@@ -66,7 +66,7 @@ Carefully analyze the audio for the presence of multiple distinct speakers or cl
 {
   "overall_cefr_level": "[A1/A2/B1/B2/C1/C2]",
   "detailed_analysis": "Comprehensive analysis of at least 100 characters covering vocabulary range and appropriateness, grammatical accuracy and complexity, pronunciation and intelligibility, fluency and natural speech patterns, coherence and organization of ideas.",
-  "specific_strengths": "What the candidate does well in their spoken English performance.",
+  "specific_strengths": "What the candidate does well in their spoken language performance.",
   "areas_for_improvement": "Concrete, actionable suggestions for language development.",
   "score_justification": "Clear explanation of why this specific CEFR level was assigned, referencing specific evidence from the recording and response length considerations.",
   "dual_audio_detected": false
@@ -74,7 +74,6 @@ Carefully analyze the audio for the presence of multiple distinct speakers or cl
 
 IMPORTANT: Analyze the audio recording and provide a comprehensive, STRICTLY EVALUATED CEFR assessment with detailed, professional feedback. Be precise, evidence-based, and unforgiving in your evaluation standards.
 `;
-
 export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessmentResult> {
   if (!GEMINI_API_KEY) {
     throw new Error('Gemini API key not configured');
@@ -88,7 +87,7 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
 
       // Get audio data
       const { audioBase64, mimeType } = await getAudioData(audioUrl);
-      
+
       console.log(`Audio data obtained, mime type: ${mimeType}, base64 length: ${audioBase64.length}`);
 
       const requestBody = {
@@ -127,7 +126,7 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
-        
+
         // Parse error response to get better error messages
         let errorMessage = `Gemini API error: ${response.status} ${response.statusText}`;
         try {
@@ -138,7 +137,7 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
         } catch (e) {
           // Use default error message if parsing fails
         }
-        
+
         // Create specific error types for different scenarios
         if (response.status === 503) {
           throw new GeminiOverloadedError(errorMessage);
@@ -152,14 +151,14 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
       }
 
       const data = await response.json();
-      
+
       if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
         console.error('Invalid response structure from Gemini API:', data);
         throw new Error('Invalid response from Gemini API');
       }
 
       const generatedText = data.candidates[0].content.parts[0].text;
-      
+
       // Parse the JSON response
       const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
@@ -168,7 +167,7 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
       }
 
       const assessmentResult = JSON.parse(jsonMatch[0]);
-      
+
       // Validate the response structure
       const requiredFields = ['overall_cefr_level', 'detailed_analysis', 'specific_strengths', 'areas_for_improvement', 'score_justification', 'dual_audio_detected'];
       for (const field of requiredFields) {
@@ -199,9 +198,9 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
         hasJustification: !!assessmentResult.score_justification,
         dualAudioDetected: assessmentResult.dual_audio_detected
       });
-      
+
       return assessmentResult;
-      
+
     } catch (error) {
       console.error('Error assessing audio with CEFR:', error);
       throw error;
@@ -244,45 +243,45 @@ async function retryWithBackoff<T>(
   maxRetries: number = MAX_RETRIES
 ): Promise<T> {
   let lastError: Error;
-  
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await operation();
     } catch (error) {
       lastError = error as Error;
-      
+
       // Don't retry on client errors (4xx) except rate limiting
       if (error instanceof GeminiClientError && !(error instanceof GeminiRateLimitError)) {
         throw error;
       }
-      
+
       // If this was the last attempt, throw the error
       if (attempt === maxRetries) {
         break;
       }
-      
+
       // Calculate delay with exponential backoff and jitter
       const baseDelay = Math.min(BASE_DELAY * Math.pow(1.5, attempt), MAX_DELAY); // Gentler backoff
       const jitter = Math.random() * 0.2 * baseDelay; // Add up to 20% jitter for better distribution
       const delay = baseDelay + jitter;
-      
+
       console.log(`Gemini API attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  
+
   throw lastError!;
 }
 
 async function getAudioData(audioUrl: string): Promise<{ audioBase64: string; mimeType: string }> {
   console.log(`Getting audio data for URL: ${audioUrl}`);
-  
+
   // Check if it's a Vocaroo link that needs conversion
   if (audioUrl.includes('voca.ro/') || audioUrl.includes('vocaroo.com/')) {
     console.log('Detected Vocaroo URL, converting to direct link...');
     return await getVocarooAudioDirect(audioUrl);
   }
-  
+
   // For other URLs (like Google Drive), fetch directly
   console.log('Non-Vocaroo URL, fetching directly...');
   return await fetchAudioDirectly(audioUrl);
@@ -291,15 +290,15 @@ async function getAudioData(audioUrl: string): Promise<{ audioBase64: string; mi
 async function getVocarooAudioDirect(vocarooUrl: string): Promise<{ audioBase64: string; mimeType: string }> {
   try {
     console.log(`Converting Vocaroo URL to direct link: ${vocarooUrl}`);
-    
+
     // Extract the recording ID from the Vocaroo URL
     const recordingId = extractVocarooId(vocarooUrl);
     if (!recordingId) {
       throw new Error('Could not extract recording ID from Vocaroo URL');
     }
-    
+
     console.log(`Extracted recording ID: ${recordingId}`);
-    
+
     // Try different direct URL patterns
     const possibleUrls = [
       `https://media1.vocaroo.com/mp3/${recordingId}`,
@@ -307,7 +306,7 @@ async function getVocarooAudioDirect(vocarooUrl: string): Promise<{ audioBase64:
       `https://media1.vocaroo.com/mp3/${recordingId}.mp3`,
       `https://media.vocaroo.com/mp3/${recordingId}.mp3`
     ];
-    
+
     for (const directUrl of possibleUrls) {
       try {
         console.log(`Trying direct URL: ${directUrl}`);
@@ -319,7 +318,7 @@ async function getVocarooAudioDirect(vocarooUrl: string): Promise<{ audioBase64:
         continue;
       }
     }
-    
+
     throw new Error('All direct URL attempts failed');
 
   } catch (error) {
@@ -334,21 +333,21 @@ function extractVocarooId(url: string): string | null {
     /voca\.ro\/([a-zA-Z0-9]+)/,
     /vocaroo\.com\/([a-zA-Z0-9]+)/
   ];
-  
+
   for (const pattern of patterns) {
     const match = url.match(pattern);
     if (match && match[1]) {
       return match[1];
     }
   }
-  
+
   return null;
 }
 
 async function fetchAudioDirectly(audioUrl: string): Promise<{ audioBase64: string; mimeType: string }> {
   try {
     console.log(`Fetching audio directly from: ${audioUrl}`);
-    
+
     const response = await fetch(audioUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch audio: ${response.status} ${response.statusText}`);
@@ -361,10 +360,10 @@ async function fetchAudioDirectly(audioUrl: string): Promise<{ audioBase64: stri
 
     const audioBlob = await response.blob();
     const audioBase64 = await blobToBase64(audioBlob);
-    
+
     // Remove the data URL prefix if present
     const base64Data = audioBase64.split(',')[1] || audioBase64;
-    
+
     return {
       audioBase64: base64Data,
       mimeType: contentType
