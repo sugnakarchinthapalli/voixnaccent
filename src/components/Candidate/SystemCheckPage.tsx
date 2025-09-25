@@ -846,7 +846,7 @@ export function SystemCheckPage() {
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-900">Time Limit</h3>
-                    <p className="text-sm text-gray-600">You have 3 minutes total for the assessment, with a maximum of 2 minutes to record your answer.</p>
+                    <p className="text-sm text-gray-500">You have 3 minutes total for the assessment, with a maximum of 2 minutes to record your answer.</p>
                   </div>
                 </div>
 
