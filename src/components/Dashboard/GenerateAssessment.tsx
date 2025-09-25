@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Upload, Download, Link as LinkIcon, Clock, Users, AlertCircle, CheckCircle, Copy, HelpCircle } from 'lucide-react';
 import { Button } from '../UI/Button';
 import { supabase } from '../../lib/supabase';
+import { supabaseServiceRole } from '../../lib/supabaseServiceRole';
 import { questionService } from '../../services/questionService';
 import { Question } from '../../types';
 
@@ -195,7 +196,8 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
         expiresAt.setMonth(expiresAt.getMonth() + 3);
         
         // Create candidate record with scheduled assessment
-        const { data: candidateRecord, error: candidateError } = await supabase
+        // Use service role client for backend operations like candidate creation
+        const { data: candidateRecord, error: candidateError } = await supabaseServiceRole
           .from('candidates')
           .insert({
             name: candidate.name.trim(),
@@ -319,8 +321,8 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
                 <div>
                   <h3 className="font-medium text-blue-800">Important Information</h3>
                   <ul className="text-sm text-blue-700 mt-1 space-y-1">
-                    <li>• Each assessment link expires in 24 hours</li>
-                    <li>• Candidates have 3 minutes to complete the assessment once they start</li>
+                    <li>• Each assessment link expires in 3 months</li>
+                    <li>• Candidates have 15 minutes to complete the assessment once they start</li>
                     <li>• Links can only be used once</li>
                     <li>• Results will appear in the main dashboard once completed</li>
                   </ul>
@@ -409,7 +411,7 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
                 <h3 className="font-medium text-blue-800">Assessment Link Features</h3>
                 <ul className="text-sm text-blue-700 mt-1 space-y-1">
                   <li>• Each assessment link expires in 3 months</li>
-                  <li>• 3-minute timed assessment with proctoring features</li>
+                  <li>• 15-minute timed assessment with proctoring features</li>
                   <li>• Tab focus monitoring and copy protection</li>
                   <li>• Automatic identity verification via webcam snapshots</li>
                 </ul>
