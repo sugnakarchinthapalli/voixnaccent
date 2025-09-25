@@ -33,6 +33,34 @@ export class QuestionService {
     return data || [];
   }
 
+  async getActiveQuestions(): Promise<Question[]> {
+    const { data, error } = await supabase
+      .from('questions')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getQuestionById(id: string): Promise<Question | null> {
+    const { data, error } = await supabase
+      .from('questions')
+      .select('*')
+      .eq('id', id)
+      .eq('is_active', true)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null; // No rows returned
+      }
+      throw error;
+    }
+    return data;
+  }
+
   async createQuestion(questionData: {
     text: string;
     difficulty_level?: 'easy' | 'medium' | 'hard';

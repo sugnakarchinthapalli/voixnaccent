@@ -120,8 +120,10 @@ export function SystemCheckPage() {
       }
       
       // Query database for candidate with assessment_link_id
-      const result = await supabaseServiceRole.from('candidates').select('*').eq('assessment_link_id', sessionId).execute();
-      const { data: candidates, error: candidateError } = result;
+      const { data: candidates, error: candidateError } = await supabaseServiceRole
+        .from('candidates')
+        .select('*')
+        .eq('assessment_link_id', sessionId);
 
       if (candidateError) {
         setError('Database error occurred. Please contact your administrator.');
@@ -313,14 +315,36 @@ export function SystemCheckPage() {
   };
 
   /**
-   * Fetches a random assessment question from the database
+   * Fetches the assigned assessment question for this candidate
    */
-  const fetchRandomQuestion = async () => {
+  const fetchAssignedQuestion = async () => {
+    if (!candidateData) {
+      setError('Candidate data not loaded');
+      return;
+    }
+    
     try {
       setLoadingQuestion(true);
-      const randomQuestion = await questionService.getRandomQuestion();
-      setQuestion(randomQuestion);
-      setError('');
+      
+      // Check if candidate has an assigned question
+      if (candidateData.assigned_question_id) {
+        console.log('Loading assigned question:', candidateData.assigned_question_id);
+        const assignedQuestion = await questionService.getQuestionById(candidateData.assigned_question_id);
+        
+        if (assignedQuestion) {
+          setQuestion(assignedQuestion);
+          setError('');
+        } else {
+          console.warn('Assigned question not found, falling back to random');
+          const randomQuestion = await questionService.getRandomQuestion();
+          setQuestion(randomQuestion);
+        }
+      } else {
+        console.log('No assigned question, using random');
+        // Fall back to random question if no assignment
+        const randomQuestion = await questionService.getRandomQuestion();
+        setQuestion(randomQuestion);
+      }
     } catch (err) {
       setError('Failed to load assessment question. Please refresh the page.');
       console.error('Error loading question:', err);
@@ -372,8 +396,8 @@ export function SystemCheckPage() {
    */
   const proceedToAssessment = async () => {
     try {
-      // Load a random assessment question
-      await fetchRandomQuestion();
+      // Load the assigned assessment question
+      await fetchAssignedQuestion();
       
       // Initialize assessment timer
       initializeTimer();
@@ -383,8 +407,7 @@ export function SystemCheckPage() {
         await supabaseServiceRole
           .from('candidates')
           .update({ assessment_status: 'in_progress' })
-          .eq('id', candidateData.id)
-          .execute();
+          .eq('id', candidateData.id);
       }
       
       // Set up proctoring
@@ -735,8 +758,7 @@ export function SystemCheckPage() {
           assessment_status: 'completed',
           proctoring_flags: proctoringFlags
         })
-        .eq('id', candidateData.id)
-        .execute();
+        .eq('id', candidateData.id);
 
       if (updateError) {
         throw new Error(`Failed to update candidate: ${updateError.message}`);

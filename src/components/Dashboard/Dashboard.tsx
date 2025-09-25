@@ -45,13 +45,13 @@ export function Dashboard() {
 
     // Set up periodic refresh and start queue monitoring
     const interval = setInterval(loadAssessments, 15000); // Refresh every 15 seconds
-    
+
     // Start queue monitoring for automatic processing
     assessmentService.startQueueMonitoring();
-    
+
     // Start system monitoring
     monitoringService.startMonitoring();
-    
+
     return () => {
       clearInterval(interval);
       assessmentService.stopQueueMonitoring();
@@ -68,7 +68,7 @@ export function Dashboard() {
     if (!wasLoading) {
       setLoading(true);
     }
-    
+
     try {
       const data = await assessmentService.getAllAssessments();
       setAssessments(data);
@@ -94,13 +94,13 @@ export function Dashboard() {
 
     // Apply filters
     if (filters.assessedBy) {
-      filtered = filtered.filter(assessment => 
+      filtered = filtered.filter(assessment =>
         assessment.assessed_by === filters.assessedBy
       );
     }
 
     if (filters.overallGrade) {
-      filtered = filtered.filter(assessment => 
+      filtered = filtered.filter(assessment =>
         assessment.overall_grade === filters.overallGrade
       );
     }
@@ -114,13 +114,13 @@ export function Dashboard() {
     }
 
     if (filters.dateFrom) {
-      filtered = filtered.filter(assessment => 
+      filtered = filtered.filter(assessment =>
         new Date(assessment.assessment_date) >= new Date(filters.dateFrom)
       );
     }
 
     if (filters.dateTo) {
-      filtered = filtered.filter(assessment => 
+      filtered = filtered.filter(assessment =>
         new Date(assessment.assessment_date) <= new Date(filters.dateTo + 'T23:59:59')
       );
     }
@@ -166,9 +166,9 @@ export function Dashboard() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Voice Assessments</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Voix-n-Accent</h1>
               <p className="text-gray-600 mt-1">
-                AI-powered communications evaluation App - Dashboard
+                AI-powered German and French comms evaluation App - Dashboard
               </p>
             </div>
             <div className="flex items-center space-x-3">
@@ -313,8 +313,8 @@ export function Dashboard() {
         </div>
 
         {/* Assessment Table */}
-        <AssessmentTable 
-          assessments={filteredAssessments} 
+        <AssessmentTable
+          assessments={filteredAssessments}
           onAssessmentDeleted={loadAssessments}
         />
 

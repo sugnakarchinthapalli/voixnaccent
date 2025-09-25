@@ -9,6 +9,7 @@ export interface Candidate {
   assessment_status: 'pending' | 'in_progress' | 'completed' | 'expired';
   proctoring_flags: Record<string, any> | null;
   session_expires_at: string | null;
+  assigned_question_id: string | null;
   created_at: string;
   updated_at: string;
 }

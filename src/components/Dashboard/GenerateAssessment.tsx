@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { X, Plus, Upload, Download, Link as LinkIcon, Clock, Users, AlertCircle, CheckCircle, Copy } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Plus, Upload, Download, Link as LinkIcon, Clock, Users, AlertCircle, CheckCircle, Copy, HelpCircle } from 'lucide-react';
 import { Button } from '../UI/Button';
 import { supabase } from '../../lib/supabase';
+import { questionService } from '../../services/questionService';
+import { Question } from '../../types';
 
 interface GenerateAssessmentProps {
   onClose: () => void;
@@ -29,6 +31,33 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
   
   // State for copy feedback
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+  
+  // State for question selection
+  const [activeQuestions, setActiveQuestions] = useState<Question[]>([]);
+  const [selectedQuestionId, setSelectedQuestionId] = useState<string>('');
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  
+  // Load active questions on component mount
+  useEffect(() => {
+    const loadActiveQuestions = async () => {
+      try {
+        setLoadingQuestions(true);
+        const questions = await questionService.getActiveQuestions();
+        setActiveQuestions(questions);
+        // Auto-select first question if available
+        if (questions.length > 0) {
+          setSelectedQuestionId(questions[0].id);
+        }
+      } catch (err) {
+        console.error('Failed to load questions:', err);
+        setError('Failed to load assessment questions. Please try again.');
+      } finally {
+        setLoadingQuestions(false);
+      }
+    };
+    
+    loadActiveQuestions();
+  }, []);
 
   /**
    * Adds a new empty candidate to the list
@@ -114,14 +143,20 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
   };
 
   /**
-   * Validates candidate data before generation
-   * Checks for required fields and duplicate emails
+   * Validates candidate data and question selection before generation
+   * Checks for required fields, duplicate emails, and selected question
    */
   const validateCandidates = () => {
     const validCandidates = candidates.filter(c => c.name.trim() && c.email.trim() && c.email.includes('@'));
     
     if (validCandidates.length === 0) {
       setError('Please add at least one candidate with valid name and email');
+      return false;
+    }
+    
+    // Check if a question is selected
+    if (!selectedQuestionId) {
+      setError('Please select an assessment question');
       return false;
     }
     
@@ -169,7 +204,8 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
             source_type: 'scheduled', // Indicates this is a generated assessment link
             assessment_link_id: sessionId, // Unique identifier for the assessment link
             assessment_status: 'pending', // Initial status
-            session_expires_at: expiresAt.toISOString(), // 24-hour expiry
+            session_expires_at: expiresAt.toISOString(), // 3-month expiry
+            assigned_question_id: selectedQuestionId, // Assign the selected question
             proctoring_flags: {} // Will store proctoring data when assessment is taken
           })
           .select()
@@ -379,6 +415,69 @@ export function GenerateAssessment({ onClose, onSuccess }: GenerateAssessmentPro
                 </ul>
               </div>
             </div>
+          </div>
+
+          {/* Question Selection */}
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <HelpCircle className="h-5 w-5 text-gray-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Assessment Question</h3>
+            </div>
+            
+            {loadingQuestions ? (
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                  <span className="text-sm text-gray-600">Loading questions...</span>
+                </div>
+              </div>
+            ) : activeQuestions.length === 0 ? (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center">
+                  <AlertCircle className="h-4 w-4 text-yellow-600 mr-2" />
+                  <p className="text-sm text-yellow-800">No active questions found. Please add questions to the database first.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Select Assessment Question *
+                </label>
+                <select
+                  value={selectedQuestionId}
+                  onChange={(e) => setSelectedQuestionId(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Choose a question...</option>
+                  {activeQuestions.map((question) => (
+                    <option key={question.id} value={question.id}>
+                      {question.text.length > 80 
+                        ? `${question.text.substring(0, 80)}...` 
+                        : question.text}
+                      {` (${question.difficulty_level})`}
+                    </option>
+                  ))}
+                </select>
+                
+                {selectedQuestionId && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="text-sm">
+                      <span className="font-medium text-blue-800">Selected Question:</span>
+                      <p className="text-blue-700 mt-1">
+                        {activeQuestions.find(q => q.id === selectedQuestionId)?.text}
+                      </p>
+                      <span className="inline-block mt-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                        {activeQuestions.find(q => q.id === selectedQuestionId)?.difficulty_level}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                <p className="text-xs text-gray-500">
+                  All candidates will receive this question for their assessment. Questions are managed in the database.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Bulk Input Toggle */}
