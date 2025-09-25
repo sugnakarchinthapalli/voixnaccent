@@ -83,7 +83,7 @@ export function SystemCheckPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(180); // 3 minutes
+  const [timeRemaining, setTimeRemaining] = useState(900); // 15 minutes
   const [assessmentExpired, setAssessmentExpired] = useState(false);
   const [tabFocusLost, setTabFocusLost] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
@@ -94,7 +94,7 @@ export function SystemCheckPage() {
 
   // Constants
   const MAX_RECORDING_TIME = 120; // 2 minutes
-  const ASSESSMENT_DURATION = 180; // 3 minutes
+  const ASSESSMENT_DURATION = 900; // 15 minutes
 
   useEffect(() => {
     if (!sessionId) {
@@ -120,8 +120,10 @@ export function SystemCheckPage() {
       }
 
       // Query database for candidate with assessment_link_id
-      const result = await supabaseServiceRole.from('candidates').select('*').eq('assessment_link_id', sessionId).execute();
-      const { data: candidates, error: candidateError } = result;
+      const { data: candidates, error: candidateError } = await supabaseServiceRole
+        .from('candidates')
+        .select('*')
+        .eq('assessment_link_id', sessionId);
 
       if (candidateError) {
         setError('Database error occurred. Please contact your administrator.');
@@ -313,14 +315,36 @@ export function SystemCheckPage() {
   };
 
   /**
-   * Fetches a random assessment question from the database
+   * Fetches the assigned assessment question for this candidate
    */
-  const fetchRandomQuestion = async () => {
+  const fetchAssignedQuestion = async () => {
+    if (!candidateData) {
+      setError('Candidate data not loaded');
+      return;
+    }
+    
     try {
       setLoadingQuestion(true);
-      const randomQuestion = await questionService.getRandomQuestion();
-      setQuestion(randomQuestion);
-      setError('');
+      
+      // Check if candidate has an assigned question
+      if (candidateData.assigned_question_id) {
+        console.log('Loading assigned question:', candidateData.assigned_question_id);
+        const assignedQuestion = await questionService.getQuestionById(candidateData.assigned_question_id);
+        
+        if (assignedQuestion) {
+          setQuestion(assignedQuestion);
+          setError('');
+        } else {
+          console.warn('Assigned question not found, falling back to random');
+          const randomQuestion = await questionService.getRandomQuestion();
+          setQuestion(randomQuestion);
+        }
+      } else {
+        console.log('No assigned question, using random');
+        // Fall back to random question if no assignment
+        const randomQuestion = await questionService.getRandomQuestion();
+        setQuestion(randomQuestion);
+      }
     } catch (err) {
       setError('Failed to load assessment question. Please refresh the page.');
       console.error('Error loading question:', err);
@@ -330,7 +354,7 @@ export function SystemCheckPage() {
   };
 
   /**
-   * Initializes and manages the 3-minute assessment timer
+   * Initializes and manages the 15-minute assessment timer
    * Uses localStorage to persist timer across page refreshes
    */
   const initializeTimer = () => {
@@ -348,7 +372,7 @@ export function SystemCheckPage() {
 
     setSessionStartTime(startTime);
 
-    // Start countdown timer - UI shows 3 minutes but database expires in 4
+    // Start countdown timer - UI shows 15 minutes
     const updateTimer = () => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       const remaining = Math.max(0, ASSESSMENT_DURATION - elapsed);
@@ -372,8 +396,8 @@ export function SystemCheckPage() {
    */
   const proceedToAssessment = async () => {
     try {
-      // Load a random assessment question
-      await fetchRandomQuestion();
+      // Load the assigned assessment question
+      await fetchAssignedQuestion();
 
       // Initialize assessment timer
       initializeTimer();
@@ -383,8 +407,7 @@ export function SystemCheckPage() {
         await supabaseServiceRole
           .from('candidates')
           .update({ assessment_status: 'in_progress' })
-          .eq('id', candidateData.id)
-          .execute();
+          .eq('id', candidateData.id);
       }
 
       // Set up proctoring
@@ -735,8 +758,7 @@ export function SystemCheckPage() {
           assessment_status: 'completed',
           proctoring_flags: proctoringFlags
         })
-        .eq('id', candidateData.id)
-        .execute();
+        .eq('id', candidateData.id);
 
       if (updateError) {
         throw new Error(`Failed to update candidate: ${updateError.message}`);
@@ -846,7 +868,7 @@ export function SystemCheckPage() {
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-900">Time Limit</h3>
-                    <p className="text-sm text-gray-500">You have 3 minutes total for the assessment, with a maximum of 2 minutes to record your answer.</p>
+                    <p className="text-sm text-gray-600">You have 15 minutes total for the assessment, with a maximum of 2 minutes to record your answer.</p>
                   </div>
                 </div>
 
