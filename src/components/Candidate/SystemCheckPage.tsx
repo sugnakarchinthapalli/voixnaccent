@@ -94,7 +94,7 @@ export function SystemCheckPage() {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
 
   // Constants
-  const MAX_RECORDING_TIME = 120; // 2 minutes
+  const MAX_RECORDING_TIME = 900; // 15 minutes (same as assessment duration)
   const ASSESSMENT_DURATION = 900; // 15 minutes
 
   useEffect(() => {
@@ -872,7 +872,7 @@ export function SystemCheckPage() {
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-900">Time Limit</h3>
-                    <p className="text-sm text-gray-600">You have 15 minutes total for the assessment, with a maximum of 2 minutes to record your answer.</p>
+                    <p className="text-sm text-gray-600">You have 15 minutes total for the assessment to think, prepare, and record your answer.</p>
                   </div>
                 </div>
 
@@ -1206,7 +1206,7 @@ export function SystemCheckPage() {
                   <p className="text-gray-700 leading-relaxed">{question.text}</p>
                   <div className="mt-3 flex items-center text-xs text-blue-600">
                     <Timer className="h-3 w-3 mr-1" />
-                    <span>Maximum 2 minutes to answer</span>
+                    <span>Use the full 15 minutes available for your answer</span>
                   </div>
                 </div>
               )}
