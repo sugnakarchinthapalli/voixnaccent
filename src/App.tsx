@@ -5,6 +5,7 @@ import { Header } from './components/Layout/Header';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { SystemCheckPage } from './components/Candidate/SystemCheckPage';
 import { CandidateAssessmentPage } from './components/Candidate/CandidateAssessmentPage';
+import { DebugQuestions } from './components/Debug/DebugQuestions';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
       <Routes>
         {/* Public routes for candidate assessment flow - NO AuthWrapper */}
         <Route path="/commstest/:sessionId" element={<SystemCheckPage />} />
+        <Route path="/debug-questions" element={<DebugQuestions />} />
         
         {/* Protected routes for internal users - WITH AuthWrapper */}
         <Route path="/*" element={
