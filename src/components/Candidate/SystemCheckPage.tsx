@@ -26,6 +26,7 @@ import { storageService } from '../../services/storageService';
 import { supabase } from '../../lib/supabase';
 import { supabaseServiceRole } from '../../lib/supabaseServiceRole';
 import { Question, Candidate } from '../../types';
+import { debugCandidateSearch } from '../../utils/debugCandidate';
 
 interface SystemCheckResult {
   camera: boolean;
@@ -119,6 +120,9 @@ export function SystemCheckPage() {
         return;
       }
 
+      // Debug: Check what's happening with the candidate search
+      await debugCandidateSearch(sessionId);
+      
       // Query database for candidate with assessment_link_id
       const { data: candidates, error: candidateError } = await supabaseServiceRole
         .from('candidates')
