@@ -27,6 +27,7 @@ import { supabase } from '../../lib/supabase';
 import { supabaseServiceRole } from '../../lib/supabaseServiceRole';
 import { Question, Candidate } from '../../types';
 import { debugCandidateSearch } from '../../utils/debugCandidate';
+import { formatQuestionText } from '../../utils/questionFormatter';
 
 interface SystemCheckResult {
   camera: boolean;
@@ -1203,8 +1204,11 @@ export function SystemCheckPage() {
                   className="bg-blue-50 p-4 rounded-lg select-none"
                   style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none' }}
                 >
-                  <p className="text-gray-700 leading-relaxed">{question.text}</p>
-                  <div className="mt-3 flex items-center text-xs text-blue-600">
+                  <div 
+                    className="text-gray-700 leading-relaxed prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: formatQuestionText(question.text) }}
+                  />
+                  <div className="mt-4 flex items-center text-xs text-blue-600 border-t pt-3">
                     <Timer className="h-3 w-3 mr-1" />
                     <span>Use the full 15 minutes available for your answer</span>
                   </div>
