@@ -228,14 +228,30 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
 
       const generatedText = data.candidates[0].content.parts[0].text;
 
-      // Parse the JSON response
-      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
+     
+      // Parse the JSON response - handle both plain JSON and markdown-wrapped JSON
+      let jsonString = '';
+      
+      // First try to extract JSON from markdown code blocks
+      const markdownJsonMatch = generatedText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (markdownJsonMatch) {
+        jsonString = markdownJsonMatch[1].trim();
+        console.log('Extracted JSON from markdown code block');
+      } else {
+        // Fall back to extracting plain JSON
+        const plainJsonMatch = generatedText.match(/\{[\s\S]*\}/);
+        if (plainJsonMatch) {
+          jsonString = plainJsonMatch[0];
+          console.log('Extracted plain JSON from response');
+        }
+      }
+      
+      if (!jsonString) {
         console.error('Could not extract JSON from Gemini response:', generatedText);
         throw new Error('Could not extract JSON from Gemini response');
       }
 
-      const assessmentResult = JSON.parse(jsonMatch[0]);
+      const assessmentResult = JSON.parse(jsonString);
 
       // Validate the response structure
       const requiredFields = ['overall_cefr_level', 'detailed_analysis', 'specific_strengths', 'areas_for_improvement', 'score_justification', 'dual_audio_detected'];
