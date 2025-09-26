@@ -37,61 +37,29 @@ When assessing candidates, you will be provided with specific case studies and q
 - **Question Relevance**: Did they directly answer what was asked?
 
 **CASE STUDY REFERENCE MATERIALS:**
+Case Study: Apex Media & FinSmart Finance Brand Awareness Trial on Spotify
+The Client & Agency
+Agency: Apex Media, a full-service media agency, led by Managing Director Elias Vance.
+Client: FinSmart, a new finance brand providing advice on superannuation and debt reduction.
+Goal: Drive brand awareness and reach in major Australian capital cities.
+The Challenge
+FinSmart needed to run a trial campaign for a niche audience but had two major constraints:
+Niche Audience: Individuals aged 45–60 nearing retirement with an interest in finance and business.
+No Creative: FinSmart was a startup and lacked any audio ad assets for the proposed $2,000–$5,000 trial budget.
+The Solution (Spotify Ads Manager)
+Anya Sharma (Spotify specialist) guided Apex Media on using the self-serve platform:
+Free Creative: Solved the asset issue by offering free audio ad production with a 24–48 hour turnaround; FinSmart only needed to provide a script.
+Targeting: Demonstrated using comprehensive controls for the niche audience (45–60, Australian capitals, finance/business interest), confirming the ability to target across music and podcasts.
+Account Setup: Apex Media successfully created an agency MCC (My Client Center) account for efficient management of FinSmart and future small clients.
+Planning: Showed how the platform provides estimated results and benchmark CPMs instantly based on targeting selections, aiding Apex Media's budget proposals.
+Outcome
+Apex Media gained the necessary tools and support (free creative, niche targeting, agency management structure) to move forward with proposing the low-budget, high-value brand awareness trial to FinSmart.
 
-**German Case Study: Deutsch (German) 🇩🇪
-Kurzfallstudie: Apex Media & FinSmart – Testkampagne zur Markenbekanntheit auf Spotify
+1. What was the most significant challenge FinSmart (the client) faced regarding its creative assets, and how did Anya Sharma (Spotify) solve this immediately?
 
-Der Kunde und die Agentur
-Agentur: Apex Media, eine Full-Service-Mediaagentur unter der Leitung von Geschäftsführer Elias Vance.
-Kunde: FinSmart, eine neue Finanzmarke, die Beratung zu Altersvorsorge und Schuldenabbau anbietet.
-Ziel: Steigerung der Markenbekanntheit und Reichweite in australischen Großstädten.
+2. What is the primary marketing objective for FinSmart's campaign, and what are the two core elements of their target audience (Age & Interest)?
 
-Die Herausforderung
-FinSmart musste eine Testkampagne für eine Nischenzielgruppe starten, stand jedoch vor zwei großen Herausforderungen:
-Nischenzielgruppe: Personen im Alter von 45 bis 60 Jahren, die kurz vor dem Ruhestand stehen und Interesse an Finanzen und Wirtschaft haben.
-Fehlende Kreative: Als Startup besaß FinSmart keine Audio-Werbemittel für das geplante Testbudget von $2.000 bis $5.000.
-
-Die Lösung (Spotify Ads Manager)
-Anya Sharma (Spotify-Spezialistin) führte Apex Media durch die Self-Serve-Plattform:
-Kostenlose Kreativleistungen: Das Problem der fehlenden Assets wurde durch das Angebot einer kostenlosen Audio-Ad-Produktion (24 bis 48 Stunden Bearbeitungszeit) gelöst; FinSmart musste lediglich ein Skript liefern.
-Targeting: Es wurden umfassende Steuerungsmöglichkeiten für die Nischenzielgruppe demonstriert (45–60, australische Hauptstädte, Interesse an Finanzen/Wirtschaft), wobei die Möglichkeit bestätigt wurde, sowohl Musik als auch Podcasts gezielt zu belegen.
-Kontoeinrichtung: Apex Media richtete erfolgreich ein Agentur-MCC-Konto (My Client Center) ein, um FinSmart und zukünftige kleine Kunden effizient zu verwalten.
-Planungshilfe: Es wurde gezeigt, wie die Plattform geschätzte Ergebnisse und Benchmark-CPMs sofort nach Auswahl des Targetings liefert, was Apex Media bei ihren Budgetvorschlägen unterstützt.
-
-Ergebnis
-Apex Media erhielt die notwendigen Werkzeuge und Unterstützung (kostenlose Kreativleistungen, Nischen-Targeting, Agenturverwaltungsstruktur), um die Durchführung der kostengünstigen, aber hochwertigen Testkampagne zur Markenbekanntheit bei FinSmart voranzutreiben.
-
-Deutsch (German) 🇩🇪
-Was war die größte Herausforderung für FinSmart (den Kunden) in Bezug auf die kreativen Assets, und wie hat Anya Sharma (Spotify) dieses Problem sofort gelöst?
-Was ist das primäre Marketingziel für die FinSmart-Kampagne, und was sind die beiden Kernelemente ihrer Zielgruppe (Alter und Interesse)?
-Was würden Sie anders machen, um dem Kunden eine Lösung anzubieten?***
-
-**French Case Study: Französisch (French) 🇫🇷
-Étude de Cas Condensée : Apex Media & FinSmart – Essai de Notoriété de Marque sur Spotify
-Le Client et l'Agence
-Agence : Apex Media, une agence média à service complet, dirigée par le directeur général Elias Vance.
-Client : FinSmart, une nouvelle marque de finance offrant des conseils sur la retraite et la réduction de la dette.
-Objectif : Générer de la notoriété de marque et de la portée dans les principales capitales australiennes.
-
-Le Défi
-FinSmart devait lancer une campagne d'essai pour un public de niche, mais était confronté à deux contraintes majeures :
-Public de Niche : Individus âgés de 45 à 60 ans approchant de la retraite et ayant un intérêt pour la finance et les affaires.
-Absence de Créatifs : FinSmart étant une start-up, elle ne disposait d'aucune ressource créative audio pour le budget d'essai proposé de 2 000 à 5 000 $.
-
-La Solution (Spotify Ads Manager)
-Anya Sharma (spécialiste Spotify) a guidé Apex Media sur l'utilisation de la plateforme en libre-service :
-Création Gratuite : Le problème des ressources a été résolu en offrant la production gratuite d'annonces audio avec un délai de 24 à 48 heures ; FinSmart n'avait besoin de fournir qu'un script.
-Ciblage : Démonstration des contrôles complets pour le public de niche (45-60 ans, capitales australiennes, intérêt pour la finance/les affaires), confirmant la capacité de cibler à la fois la musique et les podcasts.
-Configuration du Compte : Apex Media a réussi à créer un compte MCC d'agence (My Client Center) pour une gestion efficace de FinSmart et des futurs petits clients.
-Planification : Il a été montré comment la plateforme fournit des résultats estimés et des CPM de référence instantanément après la sélection du ciblage, aidant ainsi Apex Media dans ses propositions budgétaires.
-
-Résultat
-Apex Media a acquis les outils et le soutien nécessaires (création gratuite, ciblage de niche, structure de gestion d'agence) pour aller de l'avant avec la proposition d'essai de notoriété de marque à faible budget mais à forte valeur ajoutée à FinSmart.
-
-Französisch (French) 🇫🇷
-Quel était le défi le plus important pour FinSmart (le client) concernant ses ressources créatives, et comment Anya Sharma (Spotify) l'a-t-elle résolu immédiatement ?
-Quel est l'objectif marketing principal de la campagne FinSmart, et quels sont les deux éléments essentiels de leur public cible (Âge et Intérêt) ?
-Que feriez-vous différemment pour fournir une solution au client ?**
+3. What would you do differently in order to provide a solution to the client?
 
 **LANGUAGE IDENTIFICATION:**
 - Automatically identify the language being spoken
