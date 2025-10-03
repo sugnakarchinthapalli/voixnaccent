@@ -2,7 +2,7 @@
 import type { CEFRAssessmentResult } from '../types';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-002:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`;
 
 // Retry configuration
 const MAX_RETRIES = 5; // Increased retries for better reliability
@@ -229,10 +229,10 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
       const generatedText = data.candidates[0].content.parts[0].text;
 
       console.log('Raw Gemini response:', generatedText.substring(0, 500) + '...');
-      
+
       // Parse the JSON response - handle both plain JSON and markdown-wrapped JSON
       let jsonString = '';
-      
+
       // First try to extract JSON from markdown code blocks
       const markdownJsonMatch = generatedText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (markdownJsonMatch) {
@@ -246,7 +246,7 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
           console.log('Extracted plain JSON from response');
         }
       }
-      
+
       if (!jsonString) {
         console.error('Could not extract JSON from Gemini response:', generatedText.substring(0, 1000));
         throw new Error('Could not extract JSON from Gemini response');
@@ -254,20 +254,20 @@ export async function assessAudioWithCEFR(audioUrl: string): Promise<CEFRAssessm
 
       console.log('Extracted JSON string length:', jsonString.length);
       console.log('JSON string preview:', jsonString.substring(0, 200) + '...');
-      
+
       let assessmentResult;
       try {
         assessmentResult = JSON.parse(jsonString);
       } catch (parseError) {
         console.error('JSON parse error:', parseError);
         console.error('Failed to parse JSON string:', jsonString.substring(0, 500));
-        
+
         // Check if the JSON was truncated (incomplete)
         if (!jsonString.trim().endsWith('}')) {
           console.error('JSON appears to be truncated - response was likely cut off due to token limit');
           throw new Error('Gemini response was truncated - JSON incomplete. Try with shorter prompt or higher token limit.');
         }
-        
+
         throw new Error(`Could not parse JSON from Gemini response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
       }
 
