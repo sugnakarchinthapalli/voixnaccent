@@ -5,6 +5,7 @@ import { Header } from './components/Layout/Header';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { SystemCheckPage } from './components/Candidate/SystemCheckPage';
 import { CandidateAssessmentPage } from './components/Candidate/CandidateAssessmentPage';
+import { DebugDashboard } from './components/Dashboard/DebugDashboard';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
               <Header />
               <Routes>
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/debug" element={<DebugDashboard />} />
               </Routes>
             </div>
           </AuthWrapper>
