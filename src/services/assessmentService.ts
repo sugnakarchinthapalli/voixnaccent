@@ -492,41 +492,62 @@ export class AssessmentService {
 
     if (assessmentsError) throw assessmentsError;
 
-    // Fetch scheduled candidates that don't have completed assessments yet
-    const { data: scheduledCandidates, error: candidatesError } = await supabase
+    // Get IDs of candidates who already have completed assessments
+    const completedCandidateIds = (completedAssessments || []).map(a => a.candidate_id);
+
+    // Fetch ALL other candidates that don't have completed assessments yet
+    const { data: pendingCandidates, error: candidatesError } = await supabase
       .from('candidates')
       .select('*')
-      .eq('source_type', 'scheduled')
-      .in('assessment_status', ['pending', 'in_progress', 'expired'])
+      .not('id', 'in', completedCandidateIds.length > 0 ? `(${completedCandidateIds.join(',')})` : '()')
       .order('created_at', { ascending: false });
 
     if (candidatesError) throw candidatesError;
 
-    // Create mock assessment objects for scheduled candidates
-    const mockAssessments: Assessment[] = (scheduledCandidates || []).map(candidate => ({
-      id: `scheduled-${candidate.id}`, // Prefix to distinguish from real assessments
-      candidate_id: candidate.id,
-      assessment_scores: {},
-      overall_grade: null,
-      ai_feedback: null,
-      assessed_by: 'Candidate Submission', // Show as candidate submission for scheduled ones
-      assessment_date: candidate.created_at, // Use creation date as placeholder
-      processing_status: candidate.assessment_status as 'pending' | 'processing' | 'completed' | 'failed',
-      question_id: null,
-      overall_cefr_level: null,
-      detailed_analysis: null,
-      specific_strengths: null,
-      areas_for_improvement: null,
-      score_justification: null,
-      candidate: candidate,
-      question: null
-    }));
+    // Create mock assessment objects for all pending candidates
+    const mockAssessments: Assessment[] = (pendingCandidates || []).map(candidate => {
+      // Determine processing status based on source type and assessment status
+      let processingStatus: 'pending' | 'processing' | 'completed' | 'failed' = 'pending';
+      let assessedByText = 'Awaiting Assessment';
+      
+      if (candidate.source_type === 'scheduled') {
+        processingStatus = candidate.assessment_status as 'pending' | 'processing' | 'completed' | 'failed' || 'pending';
+        assessedByText = 'Candidate Submission';
+      } else if (candidate.source_type === 'manual') {
+        processingStatus = 'pending';
+        assessedByText = 'Manual Upload';
+      } else if (candidate.source_type === 'auto') {
+        processingStatus = 'pending';
+        assessedByText = 'Form Response';
+      }
+
+      return {
+        id: `pending-${candidate.id}`, // Prefix to distinguish from real assessments
+        candidate_id: candidate.id,
+        assessment_scores: {},
+        overall_grade: null,
+        ai_feedback: null,
+        assessed_by: assessedByText,
+        assessment_date: candidate.created_at, // Use creation date as placeholder
+        processing_status: processingStatus,
+        question_id: candidate.assigned_question_id || null,
+        overall_cefr_level: null,
+        detailed_analysis: null,
+        specific_strengths: null,
+        areas_for_improvement: null,
+        score_justification: null,
+        candidate: candidate,
+        question: null
+      };
+    });
 
     // Combine completed assessments and mock assessments
     const allAssessments = [...(completedAssessments || []), ...mockAssessments];
 
     // Sort by assessment_date/created_at in descending order
     allAssessments.sort((a, b) => new Date(b.assessment_date).getTime() - new Date(a.assessment_date).getTime());
+
+    console.log(`📊 Dashboard showing ${allAssessments.length} total candidates: ${(completedAssessments || []).length} completed assessments + ${mockAssessments.length} pending candidates`);
 
     return allAssessments;
   }
@@ -590,11 +611,11 @@ export class AssessmentService {
     try {
       console.log('Starting deletion process for assessment:', assessmentId);
       
-      // Check if this is a scheduled candidate (mock assessment) or real assessment
-      if (assessmentId.startsWith('scheduled-')) {
+      // Check if this is a pending candidate (mock assessment) or real assessment
+      if (assessmentId.startsWith('scheduled-') || assessmentId.startsWith('pending-')) {
         // Extract candidate ID from the mock assessment ID
-        const candidateId = assessmentId.replace('scheduled-', '');
-        console.log('Deleting scheduled candidate:', candidateId);
+        const candidateId = assessmentId.replace(/^(scheduled-|pending-)/, '');
+        console.log('Deleting pending candidate:', candidateId);
         
         // Get candidate data for cleanup
         const { data: candidate, error: candidateError } = await supabase
