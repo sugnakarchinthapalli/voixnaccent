@@ -128,7 +128,7 @@ Listen carefully for multiple speakers:
 {
   "overall_cefr_level": "[A1/A2/B1/B2/C1/C2]",
   "detailed_analysis": "Comprehensive analysis covering: vocabulary range and appropriateness, grammatical accuracy and complexity, pronunciation and intelligibility, fluency and natural speech patterns, coherence and organization of ideas. Include 1-2 bullet points summarizing whether the candidate answered the case study questions correctly and in context. Minimum 150 characters with specific examples from the recording.",
-  "specific_strengths": "What the candidate demonstrates well in their spoken language performance, with concrete examples.",
+  "specific_strengths": "What the candidate demonstrates well in their spoken language performance, with concrete examples. If the language is identified as Japanese, where does the speaker stand in the standard JLPT levels (N5 to N1)?, for other languages, relate to CEFR levels.",
   "areas_for_improvement": "Specific, actionable suggestions for language development based on observed weaknesses.",
   "score_justification": "Clear explanation of why this specific CEFR level was assigned, referencing specific linguistic evidence from the recording and addressing key competency areas.",
   "dual_audio_detected": false
