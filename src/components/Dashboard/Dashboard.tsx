@@ -11,6 +11,17 @@ import { Assessment } from '../../types';
 import { exportToCSV } from '../../utils/csvExport';
 
 export function Dashboard() {
+   // Helper functions for default date filtering
+  function get30DaysAgo(): string {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+    return thirtyDaysAgo.toISOString().split('T')[0];
+  }
+
+  function getTodayDate(): string {
+    const now = new Date();
+    return now.toISOString().split('T')[0];
+  }
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [filteredAssessments, setFilteredAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,22 +34,11 @@ export function Dashboard() {
     assessedBy: '',
     overallGrade: '',
     framework: '', // 'CEFR' or 'Competency' or ''
-    dateFrom: getFirstDayOfCurrentMonth(),
-    dateTo: getLastDayOfCurrentMonth()
+    dateFrom: '', // Start with no date filter to show all assessments
+    dateTo: ''
   });
 
-  // Helper functions for default date filtering
-  function getFirstDayOfCurrentMonth(): string {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    return firstDay.toISOString().split('T')[0];
-  }
 
-  function getLastDayOfCurrentMonth(): string {
-    const now = new Date();
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return lastDay.toISOString().split('T')[0];
-  }
 
   useEffect(() => {
     loadAssessments();
@@ -138,8 +138,8 @@ export function Dashboard() {
       assessedBy: '',
       overallGrade: '',
       framework: '',
-      dateFrom: getFirstDayOfCurrentMonth(),
-      dateTo: getLastDayOfCurrentMonth()
+      dateFrom: '', // Clear date filters to show all assessments
+      dateTo: ''
     });
   };
 
@@ -216,6 +216,50 @@ export function Dashboard() {
               >
                 <Download className="h-4 w-4" />
                 <span>Export CSV</span>
+              </Button>
+            </div>
+             {/* Quick Filters */}
+            <div className="flex flex-wrap gap-2 pt-4 border-t">
+              <Button
+                onClick={() => setFilters(prev => ({ ...prev, dateFrom: '', dateTo: '' }))}
+                variant="outline"
+                size="sm"
+                className={!filters.dateFrom && !filters.dateTo ? 'bg-blue-50 border-blue-300' : ''}
+              >
+                All Time
+              </Button>
+              <Button
+                onClick={() => setFilters(prev => ({ 
+                  ...prev, 
+                  dateFrom: getTodayDate(), 
+                  dateTo: getTodayDate() 
+                }))}
+                variant="outline"
+                size="sm"
+              >
+                Today
+              </Button>
+              <Button
+                onClick={() => setFilters(prev => ({ 
+                  ...prev, 
+                  dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], 
+                  dateTo: getTodayDate() 
+                }))}
+                variant="outline"
+                size="sm"
+              >
+                Last 7 Days
+              </Button>
+              <Button
+                onClick={() => setFilters(prev => ({ 
+                  ...prev, 
+                  dateFrom: get30DaysAgo(), 
+                  dateTo: getTodayDate() 
+                }))}
+                variant="outline"
+                size="sm"
+              >
+                Last 30 Days
               </Button>
             </div>
 
